@@ -1,0 +1,4 @@
+# This folder stores:
+# - contentorbit.db (SQLite database)
+# - logs/ (Execution logs)
+# - cache/ (Temporary files)

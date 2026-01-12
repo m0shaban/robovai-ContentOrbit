@@ -1,0 +1,637 @@
+"""
+ContentOrbit Enterprise - Content Orchestrator
+===============================================
+The Maestro that coordinates the entire content pipeline.
+Implements the "Spider Web Strategy" for content distribution.
+
+Pipeline Flow:
+1. Fetch random article from RSS
+2. Generate Blogger article (Arabic SEO) -> blogger_url
+3. Generate Dev.to article (English Tech) -> devto_url (optional)
+4. Generate & post to Telegram (with CTAs to articles)
+5. Generate & post to Facebook (Storytelling)
+6. Log everything to database
+
+Usage:
+    from core.content_orchestrator import ContentOrchestrator
+
+    orchestrator = ContentOrchestrator(config, db)
+    result = await orchestrator.execute()
+"""
+
+import asyncio
+import time
+from typing import Optional, Dict, Any, Tuple
+from datetime import datetime
+from dataclasses import dataclass, field
+import logging
+import traceback
+
+from core.config_manager import ConfigManager
+from core.database_manager import DatabaseManager
+from core.models import FetchedArticle, PublishedPost, PostStatus, FeedCategory
+from core.fetcher.rss_parser import RSSFetcher
+from core.ai_engine.llm_client import LLMClient, GeneratedContent
+from core.publisher.blogger_publisher import BloggerPublisher
+from core.publisher.devto_publisher import DevToPublisher
+from core.publisher.telegram_publisher import TelegramPublisher
+from core.publisher.facebook_publisher import FacebookPublisher
+from core.cta_strategy import CTAStrategy  # 🎯 CTA Integration
+from core.image_generator import ImageGenerator
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PipelineResult:
+    """Result of a pipeline execution"""
+
+    success: bool = False
+    article: Optional[FetchedArticle] = None
+    blogger_url: Optional[str] = None
+    devto_url: Optional[str] = None
+    telegram_message_id: Optional[int] = None
+    facebook_post_id: Optional[str] = None
+    error: Optional[str] = None
+    processing_time: float = 0.0
+    steps_completed: list = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "success": self.success,
+            "article_title": self.article.title if self.article else None,
+            "blogger_url": self.blogger_url,
+            "devto_url": self.devto_url,
+            "telegram_message_id": self.telegram_message_id,
+            "facebook_post_id": self.facebook_post_id,
+            "error": self.error,
+            "processing_time": self.processing_time,
+            "steps_completed": self.steps_completed,
+        }
+
+
+class ContentOrchestrator:
+    """
+    Content Orchestrator - The Spider Web Strategy Implementation
+
+    Coordinates all components to execute the content distribution pipeline:
+    1. Fetcher -> Get content from RSS
+    2. AI Engine -> Generate platform-specific content
+    3. Publishers -> Distribute to all platforms
+    4. Database -> Track everything
+    """
+
+    def __init__(self, config: ConfigManager, db: DatabaseManager):
+        """
+        Initialize Content Orchestrator
+
+        Args:
+            config: ConfigManager instance
+            db: DatabaseManager instance
+        """
+        self.config = config
+        self.db = db
+
+        # Initialize components
+        self.fetcher = RSSFetcher(config, db)
+        self.llm = LLMClient(config)
+        self.blogger = BloggerPublisher(config)
+        self.devto = DevToPublisher(config)
+        self.telegram = TelegramPublisher(config)
+        self.facebook = FacebookPublisher(config)
+        self.image_generator = ImageGenerator()
+
+        #  Initialize CTA Strategy
+        self.cta = CTAStrategy()
+
+        logger.info("🎭 Content Orchestrator initialized")
+
+    async def close(self):
+        """Close all component connections"""
+        await self.fetcher.close()
+        await self.llm.close()
+        await self.blogger.close()
+        await self.devto.close()
+        await self.telegram.close()
+        await self.facebook.close()
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # MAIN PIPELINE
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    async def execute(self, category: Optional[FeedCategory] = None) -> PipelineResult:
+        """
+        Execute the complete content pipeline
+
+        This is the main entry point that orchestrates:
+        1. Fetch content
+        2. Generate articles for asset platforms (Blogger, Dev.to)
+        3. Distribute to social platforms (Telegram, Facebook)
+
+        Args:
+            category: Optional category filter for RSS feeds
+
+        Returns:
+            PipelineResult with all outcomes
+        """
+        result = PipelineResult()
+        start_time = time.time()
+
+        logger.info("=" * 60)
+        logger.info("🚀 Starting Content Pipeline Execution")
+        logger.info("=" * 60)
+
+        try:
+            # ═══════════════════════════════════════════════════════════════
+            # STEP 1: FETCH CONTENT
+            # ═══════════════════════════════════════════════════════════════
+            logger.info("📥 Step 1: Fetching content from RSS...")
+
+            article = await self.fetcher.fetch_random_article(category)
+
+            if not article:
+                result.error = "No valid articles found in RSS feeds"
+                logger.warning(f"❌ {result.error}")
+                self._log_failure("fetch", result.error)
+                return result
+
+            result.article = article
+            result.steps_completed.append("fetch")
+
+            logger.info(f"✅ Found article: {article.title[:50]}...")
+            logger.info(f"   Source: {article.original_url}")
+            logger.info(f"   Words: {article.word_count}")
+
+            # Resolve an image early so all platforms can use it.
+            image_url = await self._resolve_or_generate_image_url(article)
+
+            # ═══════════════════════════════════════════════════════════════
+            # STEP 2: GENERATE ASSET CONTENT (The Hubs)
+            # 🎯 NEW ORDER: Dev.to FIRST so Blogger can link to it
+            # ═══════════════════════════════════════════════════════════════
+
+            # 2A: Dev.to Article (English - Tech only) - FIRST for cross-linking
+            devto_url = None
+            if (
+                self.config.app_config.schedule.devto_enabled
+                and self.devto.is_configured()
+                and self._should_post_to_devto(article)
+            ):
+                logger.info("📝 Step 2A: Generating Dev.to article (English)...")
+                devto_url = await self._publish_to_devto(
+                    article, blogger_url=None, image_url=image_url
+                )
+                if devto_url:
+                    result.devto_url = devto_url
+                    result.steps_completed.append("devto")
+                    logger.info(f"✅ Dev.to published: {devto_url}")
+
+            # 2B: Blogger Article (Arabic) - WITH link to Dev.to
+            blogger_url = None
+            if (
+                self.config.app_config.schedule.blogger_enabled
+                and self.blogger.is_configured()
+            ):
+                logger.info("📝 Step 2B: Generating Blogger article (Arabic)...")
+                blogger_url = await self._publish_to_blogger(
+                    article, devto_url=devto_url, image_url=image_url
+                )
+                if blogger_url:
+                    result.blogger_url = blogger_url
+                    result.steps_completed.append("blogger")
+                    logger.info(f"✅ Blogger published: {blogger_url}")
+
+            # 2C: Update Dev.to with Blogger link (if both published)
+            # Note: This would require editing the Dev.to post - future enhancement
+
+            # ═══════════════════════════════════════════════════════════════
+            # STEP 3: SOCIAL DISTRIBUTION (The Spokes)
+            # 🎯 CTA Strategy: Facebook→Blogger, Telegram→All
+            # ═══════════════════════════════════════════════════════════════
+
+            # Use original URL as fallback if Blogger failed
+            primary_url = blogger_url or article.original_url
+
+            # 3A: Telegram (HUB - links to ALL platforms)
+            if (
+                self.config.app_config.schedule.telegram_enabled
+                and self.telegram.is_configured()
+            ):
+                logger.info("📱 Step 3A: Publishing to Telegram (Hub)...")
+                message_id = await self._publish_to_telegram(
+                    article, blogger_url, devto_url, image_url
+                )
+                if message_id:
+                    result.telegram_message_id = message_id
+                    result.steps_completed.append("telegram")
+                    logger.info(f"✅ Telegram published: message_id={message_id}")
+
+            # 3B: Facebook (drives traffic to Blogger)
+            if (
+                self.config.app_config.schedule.facebook_enabled
+                and self.facebook.is_configured()
+            ):
+                logger.info("📘 Step 3B: Publishing to Facebook (→Blogger)...")
+                post_id = await self._publish_to_facebook(
+                    article, primary_url, image_url
+                )
+                if post_id:
+                    result.facebook_post_id = post_id
+                    result.steps_completed.append("facebook")
+                    logger.info(f"✅ Facebook published: post_id={post_id}")
+
+            # ═══════════════════════════════════════════════════════════════
+            # STEP 4: RECORD SUCCESS
+            # ═══════════════════════════════════════════════════════════════
+
+            result.success = (
+                len(result.steps_completed) > 1
+            )  # At least fetch + one publish
+            result.processing_time = time.time() - start_time
+
+            # Save to database
+            self._save_published_post(result)
+
+            logger.info("=" * 60)
+            logger.info(f"✅ Pipeline completed in {result.processing_time:.2f}s")
+            logger.info(f"   Steps: {' -> '.join(result.steps_completed)}")
+            logger.info("=" * 60)
+
+            return result
+
+        except Exception as e:
+            result.error = str(e)
+            result.processing_time = time.time() - start_time
+
+            logger.error(f"❌ Pipeline failed: {e}")
+            logger.error(traceback.format_exc())
+
+            self._log_failure("pipeline", str(e), traceback.format_exc())
+
+            # Try to notify admins
+            try:
+                await self.telegram.send_error_alert(str(e), "pipeline")
+            except:
+                pass
+
+            return result
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PLATFORM-SPECIFIC PUBLISHERS
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    async def _publish_to_blogger(
+        self,
+        article: FetchedArticle,
+        devto_url: Optional[str] = None,
+        image_url: Optional[str] = None,
+    ) -> Optional[str]:
+        """Generate and publish to Blogger with smart CTA"""
+        try:
+            # Generate content
+            content = await self.llm.generate_blogger_article(article)
+
+            hero_img = ""
+            if image_url:
+                hero_img = (
+                    f'<p style="text-align:center; margin: 0 0 16px 0;">'
+                    f'<img src="{image_url}" alt="{article.title}" style="max-width:100%; border-radius: 14px;" />'
+                    f"</p>"
+                )
+
+            # 🎯 Add CTA section at the end of the article
+            cta_html = self.cta.get_blogger_cta(devto_url=devto_url)
+            final_content = hero_img + "\n\n" + content.content + "\n\n" + cta_html
+
+            # Publish
+            url = await self.blogger.publish(
+                title=content.title, content=final_content, labels=content.tags
+            )
+
+            if url:
+                self.db.log_info(
+                    component="orchestrator",
+                    action="blogger_published",
+                    message=f"Published to Blogger: {content.title[:50]}",
+                    url=url,
+                )
+
+            return url
+
+        except Exception as e:
+            logger.error(f"Blogger publish failed: {e}")
+            self.db.log_error(
+                component="orchestrator",
+                action="blogger_failed",
+                message=str(e),
+                error=e,
+            )
+
+            if not self.config.app_config.fallback_on_blogger_fail:
+                raise
+
+            return None
+
+    async def _publish_to_devto(
+        self,
+        article: FetchedArticle,
+        blogger_url: Optional[str] = None,
+        image_url: Optional[str] = None,
+    ) -> Optional[str]:
+        """Generate and publish to Dev.to with smart CTA"""
+        try:
+            # Generate content
+            content = await self.llm.generate_devto_article(article)
+
+            # 🎯 Add CTA section at the end of the article
+            cta_md = self.cta.get_devto_cta(blogger_url=blogger_url)
+            final_content = content.content + "\n\n" + cta_md
+
+            # Publish
+            url = await self.devto.publish(
+                title=content.title,
+                content=final_content,
+                tags=content.tags,
+                canonical_url=article.original_url,
+                cover_image=image_url,
+            )
+
+            if url:
+                self.db.log_info(
+                    component="orchestrator",
+                    action="devto_published",
+                    message=f"Published to Dev.to: {content.title[:50]}",
+                    url=url,
+                )
+
+            return url
+
+        except Exception as e:
+            logger.error(f"Dev.to publish failed: {e}")
+            self.db.log_error(
+                component="orchestrator", action="devto_failed", message=str(e), error=e
+            )
+            return None
+
+    async def _publish_to_telegram(
+        self,
+        article: FetchedArticle,
+        blogger_url: Optional[str],
+        devto_url: Optional[str],
+        image_url: Optional[str],
+    ) -> Optional[int]:
+        """Generate and publish to Telegram with smart CTA"""
+        try:
+            # 🎯 Use CTA Strategy for Telegram (Hub - All Links)
+            # Generate AI summary first
+            summary = article.summary or article.content[:300]
+
+            # Use CTA strategy for structured message
+            post_text = self.cta.get_telegram_message(
+                title=article.title,
+                summary=summary,
+                blogger_url=blogger_url,
+                devto_url=devto_url,
+                key_points=None,  # Can be extracted from article later
+            )
+
+            # Publish (with image if available)
+            message_id = await self.telegram.publish_post(
+                text=post_text, image_url=image_url
+            )
+
+            if message_id:
+                self.db.log_info(
+                    component="orchestrator",
+                    action="telegram_published",
+                    message=f"Published to Telegram with CTA",
+                    message_id=message_id,
+                )
+
+            return message_id
+
+        except Exception as e:
+            logger.error(f"Telegram publish failed: {e}")
+            self.db.log_error(
+                component="orchestrator",
+                action="telegram_failed",
+                message=str(e),
+                error=e,
+            )
+            return None
+
+    async def _publish_to_facebook(
+        self, article: FetchedArticle, article_url: str, image_url: Optional[str]
+    ) -> Optional[str]:
+        """Generate and publish to Facebook with smart CTA"""
+        try:
+            # 🎯 Use CTA Strategy for Facebook (drives to Blogger)
+            hook = article.summary[:200] if article.summary else article.content[:200]
+
+            post_text = self.cta.get_facebook_post(
+                title=article.title,
+                hook=hook + "...",
+                blogger_url=article_url,
+                emoji="🔥",
+            )
+
+            # Publish
+            if image_url:
+                # Photo post: include link inside caption for traffic.
+                post_id = await self.facebook.publish_photo(
+                    message=f"{post_text}\n\n{article_url}", photo_url=image_url
+                )
+            else:
+                post_id = await self.facebook.publish_post(
+                    message=post_text, link=article_url
+                )
+
+            if post_id:
+                self.db.log_info(
+                    component="orchestrator",
+                    action="facebook_published",
+                    message=f"Published to Facebook with CTA",
+                    post_id=post_id,
+                )
+
+            return post_id
+
+        except Exception as e:
+            logger.error(f"Facebook publish failed: {e}")
+            self.db.log_error(
+                component="orchestrator",
+                action="facebook_failed",
+                message=str(e),
+                error=e,
+            )
+            return None
+
+    async def _resolve_or_generate_image_url(
+        self, article: FetchedArticle
+    ) -> Optional[str]:
+        """Use RSS/og:image if available; otherwise generate a branded OG image and upload it."""
+        if getattr(article, "image_url", None):
+            return article.image_url
+
+        try:
+            hook = (article.summary or "").strip()[:110] or None
+            url = await asyncio.to_thread(
+                self.image_generator.generate_and_upload,
+                article.title,
+                hook,
+                None,
+            )
+            if url:
+                try:
+                    article.image_url = url
+                except Exception:
+                    pass
+                self.db.log_info(
+                    component="orchestrator",
+                    action="image_generated",
+                    message="Generated fallback image",
+                    url=url,
+                )
+            return url
+        except Exception as e:
+            logger.warning(f"Image generation failed: {e}")
+            return None
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # HELPER METHODS
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    def _should_post_to_devto(self, article: FetchedArticle) -> bool:
+        """
+        Check if article should be posted to Dev.to
+
+        Only tech-related content goes to Dev.to
+        """
+        if not self.config.app_config.enable_devto_for_tech_only:
+            return True
+
+        return self.devto.is_tech_topic(article.title + " " + (article.summary or ""))
+
+    def _save_published_post(self, result: PipelineResult) -> None:
+        """Save pipeline result to database"""
+        if not result.article:
+            return
+
+        post = PublishedPost(
+            source_article_id=result.article.id,
+            original_url=result.article.original_url,
+            title_ar=result.article.title,
+            blogger_url=result.blogger_url,
+            devto_url=result.devto_url,
+            telegram_message_id=result.telegram_message_id,
+            facebook_post_id=result.facebook_post_id,
+            status=PostStatus.PUBLISHED if result.success else PostStatus.FAILED,
+            error_message=result.error,
+            published_at=datetime.utcnow() if result.success else None,
+            processing_time_seconds=result.processing_time,
+        )
+
+        self.db.create_post(post)
+
+    def _log_failure(
+        self, step: str, error: str, traceback_str: Optional[str] = None
+    ) -> None:
+        """Log pipeline failure"""
+        self.db.log_error(
+            component="orchestrator",
+            action=f"pipeline_{step}_failed",
+            message=error,
+            error_traceback=traceback_str,
+        )
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # MANUAL OPERATIONS
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    async def execute_single_platform(
+        self, platform: str, article: FetchedArticle
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Execute pipeline for a single platform only
+
+        Useful for retrying failed platforms
+
+        Args:
+            platform: Platform name (blogger, devto, telegram, facebook)
+            article: Article to publish
+
+        Returns:
+            Tuple of (success, result_url_or_id)
+        """
+        try:
+            if platform == "blogger":
+                url = await self._publish_to_blogger(article)
+                return (url is not None, url)
+
+            elif platform == "devto":
+                url = await self._publish_to_devto(article)
+                return (url is not None, url)
+
+            elif platform == "telegram":
+                image_url = await self._resolve_or_generate_image_url(article)
+                msg_id = await self._publish_to_telegram(article, None, None, image_url)
+                return (msg_id is not None, str(msg_id) if msg_id else None)
+
+            elif platform == "facebook":
+                image_url = await self._resolve_or_generate_image_url(article)
+                post_id = await self._publish_to_facebook(
+                    article, article.original_url, image_url
+                )
+                return (post_id is not None, post_id)
+
+            else:
+                return (False, f"Unknown platform: {platform}")
+
+        except Exception as e:
+            return (False, str(e))
+
+    async def test_all_connections(self) -> Dict[str, bool]:
+        """
+        Test all platform connections
+
+        Returns:
+            Dict of {platform: is_working}
+        """
+        results = {}
+
+        # Test Groq/LLM
+        try:
+            test = await self.llm._generate("Say 'OK'", max_tokens=10)
+            results["groq"] = "ok" in test.lower()
+        except:
+            results["groq"] = False
+
+        # Test Blogger
+        try:
+            info = await self.blogger.get_blog_info()
+            results["blogger"] = info is not None
+        except:
+            results["blogger"] = False
+
+        # Test Dev.to
+        try:
+            info = await self.devto.get_user_info()
+            results["devto"] = info is not None
+        except:
+            results["devto"] = False
+
+        # Test Telegram
+        try:
+            info = await self.telegram.get_channel_info()
+            results["telegram"] = info is not None
+        except:
+            results["telegram"] = False
+
+        # Test Facebook
+        try:
+            info = await self.facebook.get_page_info()
+            results["facebook"] = info is not None
+        except:
+            results["facebook"] = False
+
+        return results

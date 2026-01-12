@@ -1,0 +1,75 @@
+# ContentOrbit Enterprise - Git Ignore
+# =====================================
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database & Data
+data/*.db
+data/*.sqlite
+data/logs/*.log
+*.log
+
+# Local config (contains secrets at runtime)
+data/config.json
+
+# Cache
+.cache/
+*.cache
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (NEVER COMMIT)
+*_secret*
+*_token*
+credentials.json
+token.json
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/

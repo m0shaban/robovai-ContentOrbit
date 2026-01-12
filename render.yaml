@@ -1,0 +1,150 @@
+# ════════════════════════════════════════════════════════════════════════════════
+# ContentOrbit Enterprise - Render.com Configuration
+# ════════════════════════════════════════════════════════════════════════════════
+# Deploy to Render.com with one click
+
+services:
+  # ════════════════════════════════════════════════════════════════════════════════
+  # Dashboard Web Service
+  # ════════════════════════════════════════════════════════════════════════════════
+  - type: web
+    name: contentorbit-dashboard
+    runtime: python
+    region: oregon # or: ohio, frankfurt, singapore
+    plan: starter # starter, standard, pro
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run dashboard/main_dashboard.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DASHBOARD_PASSWORD
+        sync: false # Set in Render dashboard
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: CHANNEL_ID
+        sync: false
+      - key: ADMIN_USER_ID
+        sync: false
+      - key: DEVTO_API_KEY
+        sync: false
+      - key: BLOGGER_BLOG_ID
+        sync: false
+      - key: BLOGGER_CLIENT_ID
+        sync: false
+      - key: BLOGGER_CLIENT_SECRET
+        sync: false
+      - key: BLOGGER_REFRESH_TOKEN
+        sync: false
+      - key: FACEBOOK_PAGE_ID
+        sync: false
+      - key: FACEBOOK_PAGE_ACCESS_TOKEN
+        sync: false
+    disk:
+      name: contentorbit-data
+      mountPath: /app/data
+      sizeGB: 1
+
+  # ════════════════════════════════════════════════════════════════════════════════
+  # Bot Background Worker
+  # ════════════════════════════════════════════════════════════════════════════════
+  - type: worker
+    name: contentorbit-bot
+    runtime: python
+    region: oregon
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main_bot.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: GROQ_API_KEY
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: GROQ_API_KEY
+      - key: TELEGRAM_TOKEN
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: TELEGRAM_TOKEN
+      - key: CHANNEL_ID
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: CHANNEL_ID
+      - key: ADMIN_USER_ID
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: ADMIN_USER_ID
+      - key: DEVTO_API_KEY
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: DEVTO_API_KEY
+      - key: BLOGGER_BLOG_ID
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: BLOGGER_BLOG_ID
+      - key: BLOGGER_CLIENT_ID
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: BLOGGER_CLIENT_ID
+      - key: BLOGGER_CLIENT_SECRET
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: BLOGGER_CLIENT_SECRET
+      - key: BLOGGER_REFRESH_TOKEN
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: BLOGGER_REFRESH_TOKEN
+      - key: FACEBOOK_PAGE_ID
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: FACEBOOK_PAGE_ID
+      - key: FACEBOOK_PAGE_ACCESS_TOKEN
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: FACEBOOK_PAGE_ACCESS_TOKEN
+    disk:
+      name: contentorbit-data
+      mountPath: /app/data
+      sizeGB: 1
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Environment Groups (shared across services)
+# ════════════════════════════════════════════════════════════════════════════════
+envVarGroups:
+  - name: contentorbit-secrets
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: CHANNEL_ID
+        sync: false
+      - key: ADMIN_USER_ID
+        sync: false
+      - key: BLOGGER_CLIENT_ID
+        sync: false
+      - key: BLOGGER_CLIENT_SECRET
+        sync: false
+      - key: BLOGGER_BLOG_ID
+        sync: false
+      - key: BLOGGER_REFRESH_TOKEN
+        sync: false
+      - key: DEVTO_API_KEY
+        sync: false
+      - key: FACEBOOK_PAGE_ID
+        sync: false
+      - key: FACEBOOK_PAGE_ACCESS_TOKEN
+        sync: false

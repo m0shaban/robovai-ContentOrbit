@@ -1,0 +1,112 @@
+[
+  {
+    "id": "feed_default_1",
+    "name": "عالم التقنية",
+    "url": "https://www.tech-wd.com/wd/feed/",
+    "category": "tech",
+    "language": "ar",
+    "is_active": true,
+    "priority": 5,
+    "last_fetched": null,
+    "created_at": "2026-01-12T15:21:45.570639"
+  },
+  {
+    "id": "feed_default_2",
+    "name": "أراجيك تقنية",
+    "url": "https://www.arageek.com/tech/feed",
+    "category": "tech",
+    "language": "ar",
+    "is_active": true,
+    "priority": 5,
+    "last_fetched": null,
+    "created_at": "2026-01-12T15:21:45.570665"
+  },
+  {
+    "id": "feed_default_3",
+    "name": "صدى التقنية",
+    "url": "https://www.tech-echo.com/feed",
+    "category": "tech",
+    "language": "ar",
+    "is_active": true,
+    "priority": 5,
+    "last_fetched": "2026-01-12T16:28:29.782227",
+    "created_at": "2026-01-12T15:21:45.570674"
+  },
+  {
+    "id": "feed_default_4",
+    "name": "TechCrunch",
+    "url": "https://techcrunch.com/feed/",
+    "category": "tech",
+    "language": "en",
+    "is_active": true,
+    "priority": 5,
+    "last_fetched": null,
+    "created_at": "2026-01-12T15:21:45.570681"
+  },
+  {
+    "id": "feed_default_5",
+    "name": "The Verge",
+    "url": "https://www.theverge.com/rss/index.xml",
+    "category": "tech",
+    "language": "en",
+    "is_active": true,
+    "priority": 5,
+    "last_fetched": "2026-01-12T17:34:09.668359",
+    "created_at": "2026-01-12T15:21:45.570687"
+  },
+  {
+    "id": "feed_default_6",
+    "name": "Hacker News",
+    "url": "https://hnrss.org/frontpage",
+    "category": "programming",
+    "language": "en",
+    "is_active": true,
+    "priority": 5,
+    "last_fetched": "2026-01-12T18:25:11.115492",
+    "created_at": "2026-01-12T15:21:45.570693"
+  },
+  {
+    "id": "feed_default_7",
+    "name": "AI News",
+    "url": "https://www.artificialintelligence-news.com/feed/",
+    "category": "ai",
+    "language": "en",
+    "is_active": true,
+    "priority": 5,
+    "last_fetched": null,
+    "created_at": "2026-01-12T15:21:45.570698"
+  },
+  {
+    "id": "feed_default_8",
+    "name": "Towards AI",
+    "url": "https://pub.towardsai.net/feed",
+    "category": "ai",
+    "language": "en",
+    "is_active": true,
+    "priority": 5,
+    "last_fetched": "2026-01-12T16:30:19.039648",
+    "created_at": "2026-01-12T15:21:45.570703"
+  },
+  {
+    "id": "feed_default_9",
+    "name": "Dev.to Top",
+    "url": "https://dev.to/feed",
+    "category": "programming",
+    "language": "en",
+    "is_active": true,
+    "priority": 5,
+    "last_fetched": "2026-01-12T16:28:44.803256",
+    "created_at": "2026-01-12T15:21:45.570709"
+  },
+  {
+    "id": "feed_default_10",
+    "name": "CSS Tricks",
+    "url": "https://css-tricks.com/feed/",
+    "category": "programming",
+    "language": "en",
+    "is_active": true,
+    "priority": 5,
+    "last_fetched": "2026-01-12T16:28:13.906037",
+    "created_at": "2026-01-12T15:21:45.570714"
+  }
+]

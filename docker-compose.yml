@@ -1,0 +1,100 @@
+# ════════════════════════════════════════════════════════════════════════════════
+# ContentOrbit Enterprise - Docker Compose
+# ════════════════════════════════════════════════════════════════════════════════
+# Production-ready multi-service deployment
+
+version: '3.8'
+
+services:
+  # ════════════════════════════════════════════════════════════════════════════════
+  # Dashboard Service - Streamlit Admin UI
+  # ════════════════════════════════════════════════════════════════════════════════
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contentorbit-dashboard
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./data/logs:/app/data/logs
+    environment:
+      - TZ=${TIMEZONE:-UTC}
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-admin123}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - contentorbit-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`dashboard.${DOMAIN:-localhost}`)"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=8501"
+
+  # ════════════════════════════════════════════════════════════════════════════════
+  # Bot Service - Background Worker
+  # ════════════════════════════════════════════════════════════════════════════════
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contentorbit-bot
+    restart: unless-stopped
+    command: python main_bot.py
+    volumes:
+      - ./data:/app/data
+      - ./data/logs:/app/data/logs
+    environment:
+      - TZ=${TIMEZONE:-UTC}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    depends_on:
+      dashboard:
+        condition: service_healthy
+    networks:
+      - contentorbit-network
+    labels:
+      - "com.contentorbit.service=bot"
+
+  # ════════════════════════════════════════════════════════════════════════════════
+  # Redis (Optional) - For distributed caching
+  # ════════════════════════════════════════════════════════════════════════════════
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: contentorbit-redis
+  #   restart: unless-stopped
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - contentorbit-network
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Networks
+# ════════════════════════════════════════════════════════════════════════════════
+networks:
+  contentorbit-network:
+    driver: bridge
+    name: contentorbit-network
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Volumes
+# ════════════════════════════════════════════════════════════════════════════════
+volumes:
+  data:
+    driver: local
+  # redis-data:
+  #   driver: local

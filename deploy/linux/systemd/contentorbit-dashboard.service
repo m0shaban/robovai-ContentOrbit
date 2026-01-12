@@ -1,0 +1,16 @@
+[Unit]
+Description=ContentOrbit - Streamlit Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# UPDATE THESE PATHS:
+WorkingDirectory=/opt/contentorbit
+EnvironmentFile=/opt/contentorbit/.env
+ExecStart=/opt/contentorbit/.venv/bin/streamlit run dashboard/main_dashboard.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=ContentOrbit - Pipeline Bot Worker (main_bot.py)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# UPDATE THESE PATHS:
+WorkingDirectory=/opt/contentorbit
+EnvironmentFile=/opt/contentorbit/.env
+ExecStart=/opt/contentorbit/.venv/bin/python main_bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

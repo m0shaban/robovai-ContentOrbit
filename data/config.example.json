@@ -1,0 +1,53 @@
+{
+  "brand_name": "ContentOrbit Enterprise",
+  "brand_tagline": "Your Content, Everywhere",
+  "telegram": {
+    "bot_token": "",
+    "channel_id": "",
+    "admin_user_ids": []
+  },
+  "blogger": {
+    "blog_id": "",
+    "client_id": "",
+    "client_secret": "",
+    "refresh_token": ""
+  },
+  "devto": {
+    "api_key": "",
+    "organization_id": null
+  },
+  "facebook": {
+    "page_id": "",
+    "page_access_token": ""
+  },
+  "groq": {
+    "api_key": "",
+    "model": "llama-3.3-70b-versatile",
+    "temperature": 0.7,
+    "max_tokens": 4096
+  },
+  "prompts": {
+    "brand_name": "ContentOrbit",
+    "brand_voice": "Professional, engaging, and informative",
+    "blogger_article_prompt": "أنت كاتب محتوى محترف. اكتب مقال عربي شامل ومفصل عن الموضوع التالي.\nالمقال يجب أن يكون:\n- 1500 كلمة على الأقل\n- يحتوي على مقدمة جذابة\n- عناوين فرعية واضحة (H2, H3)\n- نقاط مرقمة وقوائم\n- خاتمة مع دعوة للتفاعل\n- SEO Optimized مع كلمات مفتاحية\n\nالموضوع: {topic}\nالمصدر: {source_summary}",
+    "telegram_post_prompt": "اكتب منشور تليجرام جذاب وقصير (150-200 كلمة) عن الموضوع التالي.\nاستخدم:\n- إيموجي مناسبة 🎯\n- لغة حوارية وجذابة\n- نقاط مختصرة\n- دعوة للقراءة والتفاعل\n\nالموضوع: {topic}\nرابط المقال: {article_url}",
+    "facebook_post_prompt": "اكتب منشور فيسبوك بأسلوب Storytelling عن الموضوع التالي.\nيجب أن يكون:\n- يبدأ بقصة أو موقف\n- يثير الفضول\n- 200-300 كلمة\n- ينتهي بسؤال للتفاعل\n- يتضمن رابط المقال\n\nالموضوع: {topic}\nرابط المقال: {article_url}",
+    "devto_article_prompt": "You are a technical writer. Write a comprehensive Dev.to article about the following topic.\nThe article should:\n- Be 1000+ words\n- Include code examples if applicable\n- Have clear sections with headers\n- Be beginner-friendly but informative\n- Include practical tips and best practices\n\nTopic: {topic}\nSource: {source_summary}"
+  },
+  "schedule": {
+    "posting_interval_minutes": 60,
+    "active_hours_start": 8,
+    "active_hours_end": 23,
+    "timezone": "Africa/Cairo",
+    "max_posts_per_day": 10,
+    "blogger_enabled": true,
+    "devto_enabled": true,
+    "telegram_enabled": true,
+    "facebook_enabled": true
+  },
+  "dashboard_password": "",
+  "min_article_words": 200,
+  "enable_devto_for_tech_only": true,
+  "fallback_on_blogger_fail": true,
+  "version": "1.0.0"
+}
