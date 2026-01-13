@@ -571,7 +571,17 @@ st.markdown(
 
 import os
 
-DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "admin123")
+# Support both .env (local) and st.secrets (Streamlit Community)
+def get_secret(key: str, default: str = ""):
+    """Get secret from either st.secrets or environment"""
+    # Try Streamlit secrets first (Streamlit Community Cloud)
+    try:
+        return st.secrets.get(key, os.environ.get(key, default))
+    except:
+        # Fallback to environment variable
+        return os.environ.get(key, default)
+
+DASHBOARD_PASSWORD = get_secret("DASHBOARD_PASSWORD", "admin123")
 
 if not check_password(DASHBOARD_PASSWORD):
     st.stop()
@@ -585,13 +595,24 @@ if not check_password(DASHBOARD_PASSWORD):
 @st.cache_resource
 def get_config():
     """Get cached config manager"""
-    return ConfigManager()
+    try:
+        return ConfigManager()
+    except Exception as e:
+        st.error(f"⚠️ Config initialization error: {e}")
+        # Return minimal config for dashboard-only mode
+        config = ConfigManager()
+        config.load(create_if_missing=True)
+        return config
 
 
 @st.cache_resource
 def get_db():
     """Get cached database manager"""
-    return DatabaseManager()
+    try:
+        return DatabaseManager()
+    except Exception as e:
+        st.warning(f"⚠️ Database unavailable (view-only mode): {e}")
+        return None
 
 
 config = get_config()
@@ -646,7 +667,21 @@ with st.sidebar:
     st.markdown("---")
 
     # Quick status
-    stats = db.get_stats()
+    if db:
+        stats = db.get_stats()
+    else:
+        # Mock stats for view-only mode
+        from core.models import SystemStats
+        stats = SystemStats(
+            total_posts=0,
+            successful_posts=0,
+            failed_posts=0,
+            total_feeds=len(config.feeds) if config.feeds else 0,
+            is_running=False,
+            last_run=None,
+            next_run=None,
+            errors_24h=0,
+        )
 
     # Safely get max_posts_per_day
     max_posts = 10  # default
