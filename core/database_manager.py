@@ -589,133 +589,130 @@ class DatabaseManager:
                 )
             return logs
 
-        # ═══════════════════════════════════════════════════════════════════════════
-        # TELEGRAM CHATBOT SUPPORT
-        # ═══════════════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TELEGRAM CHATBOT SUPPORT
+    # ═══════════════════════════════════════════════════════════════════════════
 
-        def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
-            """Get a simple bot setting from DB."""
+    def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        """Get a simple bot setting from DB."""
+        with self._get_cursor() as cursor:
+            cursor.execute("SELECT value FROM bot_settings WHERE key = ?", (key,))
+            row = cursor.fetchone()
+            return row[0] if row else default
+
+    def set_setting(self, key: str, value: str) -> bool:
+        """Set a simple bot setting in DB."""
+        try:
             with self._get_cursor() as cursor:
-                cursor.execute("SELECT value FROM bot_settings WHERE key = ?", (key,))
-                row = cursor.fetchone()
-                return row[0] if row else default
+                cursor.execute(
+                    """
+                    INSERT INTO bot_settings (key, value) VALUES (?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (key, value),
+                )
+            return True
+        except Exception as e:
+            logger.error(f"Error setting bot setting {key}: {e}")
+            return False
 
-        def set_setting(self, key: str, value: str) -> bool:
-            """Set a simple bot setting in DB."""
-            try:
-                with self._get_cursor() as cursor:
-                    cursor.execute(
-                        """
-                        INSERT INTO bot_settings (key, value) VALUES (?, ?)
-                        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
-                        """,
-                        (key, value),
-                    )
-                return True
-            except Exception as e:
-                logger.error(f"Error setting bot setting {key}: {e}")
-                return False
-
-        def get_group_settings(self, chat_id: int) -> Dict[str, Any]:
-            """Get group settings; creates defaults if missing."""
-            with self._get_cursor() as cursor:
+    def get_group_settings(self, chat_id: int) -> Dict[str, Any]:
+        """Get group settings; creates defaults if missing."""
+        with self._get_cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM group_settings WHERE chat_id = ?", (chat_id,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                cursor.execute(
+                    "INSERT OR IGNORE INTO group_settings (chat_id) VALUES (?)",
+                    (chat_id,),
+                )
                 cursor.execute(
                     "SELECT * FROM group_settings WHERE chat_id = ?", (chat_id,)
                 )
                 row = cursor.fetchone()
-                if not row:
-                    cursor.execute(
-                        "INSERT OR IGNORE INTO group_settings (chat_id) VALUES (?)",
-                        (chat_id,),
-                    )
-                    cursor.execute(
-                        "SELECT * FROM group_settings WHERE chat_id = ?", (chat_id,)
-                    )
-                    row = cursor.fetchone()
 
-                return {
-                    "chat_id": row["chat_id"],
-                    "enabled": bool(row["enabled"]),
-                    "auto_reply": bool(row["auto_reply"]),
-                    "cta_enabled": bool(row["cta_enabled"]),
-                    "language": row["language"] or "ar",
-                }
+            return {
+                "chat_id": row["chat_id"],
+                "enabled": bool(row["enabled"]),
+                "auto_reply": bool(row["auto_reply"]),
+                "cta_enabled": bool(row["cta_enabled"]),
+                "language": row["language"] or "ar",
+            }
 
-        def update_group_settings(
-            self,
-            chat_id: int,
-            enabled: Optional[bool] = None,
-            auto_reply: Optional[bool] = None,
-            cta_enabled: Optional[bool] = None,
-            language: Optional[str] = None,
-        ) -> bool:
-            """Update group settings."""
-            fields = {}
-            if enabled is not None:
-                fields["enabled"] = 1 if enabled else 0
-            if auto_reply is not None:
-                fields["auto_reply"] = 1 if auto_reply else 0
-            if cta_enabled is not None:
-                fields["cta_enabled"] = 1 if cta_enabled else 0
-            if language is not None:
-                fields["language"] = language
+    def update_group_settings(
+        self,
+        chat_id: int,
+        enabled: Optional[bool] = None,
+        auto_reply: Optional[bool] = None,
+        cta_enabled: Optional[bool] = None,
+        language: Optional[str] = None,
+    ) -> bool:
+        """Update group settings."""
+        fields = {}
+        if enabled is not None:
+            fields["enabled"] = 1 if enabled else 0
+        if auto_reply is not None:
+            fields["auto_reply"] = 1 if auto_reply else 0
+        if cta_enabled is not None:
+            fields["cta_enabled"] = 1 if cta_enabled else 0
+        if language is not None:
+            fields["language"] = language
 
-            if not fields:
-                return True
+        if not fields:
+            return True
 
-            set_clause = ", ".join([f"{k} = ?" for k in fields.keys()])
-            values = list(fields.values()) + [chat_id]
+        set_clause = ", ".join([f"{k} = ?" for k in fields.keys()])
+        values = list(fields.values()) + [chat_id]
 
-            try:
-                with self._get_cursor() as cursor:
-                    cursor.execute(
-                        "INSERT OR IGNORE INTO group_settings (chat_id) VALUES (?)",
-                        (chat_id,),
-                    )
-                    cursor.execute(
-                        f"UPDATE group_settings SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE chat_id = ?",
-                        values,
-                    )
-                return True
-            except Exception as e:
-                logger.error(f"Error updating group settings: {e}")
-                return False
-
-        def get_daily_questions_used(self, user_id: int, quota_date: str) -> int:
+        try:
             with self._get_cursor() as cursor:
                 cursor.execute(
-                    "SELECT questions_used FROM user_quotas WHERE user_id = ? AND quota_date = ?",
-                    (user_id, quota_date),
+                    "INSERT OR IGNORE INTO group_settings (chat_id) VALUES (?)",
+                    (chat_id,),
                 )
-                row = cursor.fetchone()
-                return int(row[0]) if row else 0
+                cursor.execute(
+                    f"UPDATE group_settings SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE chat_id = ?",
+                    values,
+                )
+            return True
+        except Exception as e:
+            logger.error(f"Error updating group settings: {e}")
+            return False
 
-        def increment_daily_questions(
-            self, user_id: int, quota_date: str, inc: int = 1
-        ) -> int:
-            """Increment daily question counter and return new value."""
-            with self._get_cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO user_quotas (user_id, quota_date, questions_used)
-                    VALUES (?, ?, 0)
-                    ON CONFLICT(user_id, quota_date) DO NOTHING
-                    """,
-                    (user_id, quota_date),
-                )
-                cursor.execute(
-                    "UPDATE user_quotas SET questions_used = questions_used + ? WHERE user_id = ? AND quota_date = ?",
-                    (inc, user_id, quota_date),
-                )
-                cursor.execute(
-                    "SELECT questions_used FROM user_quotas WHERE user_id = ? AND quota_date = ?",
-                    (user_id, quota_date),
-                )
-                row = cursor.fetchone()
-                return int(row[0]) if row else 0
+    def get_daily_questions_used(self, user_id: int, quota_date: str) -> int:
+        with self._get_cursor() as cursor:
+            cursor.execute(
+                "SELECT questions_used FROM user_quotas WHERE user_id = ? AND quota_date = ?",
+                (user_id, quota_date),
+            )
+            row = cursor.fetchone()
+            return int(row[0]) if row else 0
 
-    def clear_old_logs(self, days: int = 30) -> int:
-        """Clear logs older than specified days"""
+    def increment_daily_questions(
+        self, user_id: int, quota_date: str, inc: int = 1
+    ) -> int:
+        """Increment daily question counter and return new value."""
+        with self._get_cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO user_quotas (user_id, quota_date, questions_used)
+                VALUES (?, ?, 0)
+                ON CONFLICT(user_id, quota_date) DO NOTHING
+                """,
+                (user_id, quota_date),
+            )
+            cursor.execute(
+                "UPDATE user_quotas SET questions_used = questions_used + ? WHERE user_id = ? AND quota_date = ?",
+                (inc, user_id, quota_date),
+            )
+            cursor.execute(
+                "SELECT questions_used FROM user_quotas WHERE user_id = ? AND quota_date = ?",
+                (user_id, quota_date),
+            )
+            row = cursor.fetchone()
+            return int(row[0]) if row else 0
         cutoff = datetime.utcnow() - timedelta(days=days)
         with self._get_cursor() as cursor:
             cursor.execute("DELETE FROM system_logs WHERE timestamp < ?", (cutoff,))
