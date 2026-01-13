@@ -567,8 +567,6 @@ st.markdown(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# AUTHENTICATION
-# ═══════════════════════════════════════════════════════════════════════════════
 # AUTHENTICATION & SECRETS
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -597,13 +595,13 @@ if not check_password(DASHBOARD_PASSWORD):
 def get_config():
     """Get cached config manager"""
     try:
-        return ConfigManager()
-    except Exception as e:
-        st.error(f"⚠️ Config initialization error: {e}")
-        # Return minimal config for dashboard-only mode
         config = ConfigManager()
         config.load(create_if_missing=True)
         return config
+    except Exception as e:
+        # Return None if config can't be loaded - dashboard will handle this
+        st.warning(f"⚠️ Config unavailable (demo mode): {str(e)[:50]}")
+        return None
 
 
 @st.cache_resource
@@ -618,6 +616,18 @@ def get_db():
 
 config = get_config()
 db = get_db()
+
+# Check if we're in demo mode (no config available)
+DEMO_MODE = config is None
+
+if DEMO_MODE:
+    st.error("⚠️ Dashboard requires configuration. Please deploy with proper config files.")
+    st.info("📋 For Streamlit Community, the full dashboard requires a backend server (Render).")
+    st.markdown("---")
+    st.markdown("### Quick Links:")
+    st.markdown("- 🤖 [Try the Bot](https://t.me/robovai_hub_bot)")
+    st.markdown("- 🔧 [Render Dashboard](https://robovai-contentorbit.onrender.com)")
+    st.stop()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
