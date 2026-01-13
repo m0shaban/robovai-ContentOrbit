@@ -390,5 +390,10 @@ async def main():
         db.close()
 
 
+async def start_chatbot():
+    """Entry point for running chatbot from unified_bot.py"""
+    await main()
+
+
 if __name__ == "__main__":
     asyncio.run(main())

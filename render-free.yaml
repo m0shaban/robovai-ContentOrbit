@@ -1,0 +1,54 @@
+# ════════════════════════════════════════════════════════════════════════════════
+# ContentOrbit - Render.com Free Tier Configuration (Unified Bot)
+# ════════════════════════════════════════════════════════════════════════════════
+# This config runs the unified bot (main_bot + chatbot) as a single web service
+# to maximize uptime on Render's free tier.
+
+services:
+  # ════════════════════════════════════════════════════════════════════════════════
+  # Unified Bot Web Service (main_bot + telegram_chatbot)
+  # ════════════════════════════════════════════════════════════════════════════════
+  - type: web
+    name: contentorbit-unified-bot
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python unified_bot.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PORT
+        value: 8080
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: CHANNEL_ID
+        sync: false
+      - key: ADMIN_USER_ID
+        sync: false
+      - key: DEVTO_API_KEY
+        sync: false
+      - key: BLOGGER_BLOG_ID
+        sync: false
+      - key: BLOGGER_CLIENT_ID
+        sync: false
+      - key: BLOGGER_CLIENT_SECRET
+        sync: false
+      - key: BLOGGER_REFRESH_TOKEN
+        sync: false
+      - key: FACEBOOK_PAGE_ID
+        sync: false
+      - key: FACEBOOK_PAGE_ACCESS_TOKEN
+        sync: false
+      - key: IMGBB_API_KEY
+        sync: false
+    disk:
+      name: contentorbit-data
+      mountPath: /app/data
+      sizeGB: 1
+
+# Note: Dashboard should be deployed separately on Streamlit Community Cloud
+# See deploy/streamlit/README.md for instructions
