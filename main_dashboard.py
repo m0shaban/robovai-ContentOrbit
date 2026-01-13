@@ -1,41 +1,14 @@
+"""ContentOrbit Enterprise - Streamlit entrypoint.
+
+Streamlit Community Cloud is configured to run this file.
+It delegates to the real dashboard app in `dashboard/main_dashboard.py`.
 """
-ContentOrbit Enterprise - Dashboard Entry Point
-===============================================
-Streamlit-based Admin Dashboard for managing the content system.
-
-Usage:
-    streamlit run main_dashboard.py
-
-Or with specific port:
-    streamlit run main_dashboard.py --server.port 8501
-"""
-
-# This file will be implemented in Part 3 (Dashboard)
-# For now, it's a placeholder entry point
 
 import sys
 from pathlib import Path
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent))
+ROOT_DIR = Path(__file__).parent
+sys.path.insert(0, str(ROOT_DIR))
 
-
-def main():
-    """Dashboard main function - will be implemented in Part 3"""
-    print(
-        """
-    ╔═══════════════════════════════════════════════════════════╗
-    ║                                                           ║
-    ║   🎛️  ContentOrbit Dashboard                              ║
-    ║   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   ║
-    ║   Coming in Part 3!                                       ║
-    ║                                                           ║
-    ║   Run: streamlit run main_dashboard.py                    ║
-    ║                                                           ║
-    ╚═══════════════════════════════════════════════════════════╝
-    """
-    )
-
-
-if __name__ == "__main__":
-    main()
+# Importing this module runs the Streamlit dashboard.
+from dashboard import main_dashboard as _main_dashboard  # noqa: F401

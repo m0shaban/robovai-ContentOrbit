@@ -23,15 +23,24 @@ def check_password(correct_password: str) -> bool:
     def password_entered():
         """Checks whether password entered is correct"""
         entered = st.session_state.get("password", "")
+        st.session_state["login_attempted"] = True
         if entered == correct_password:
             st.session_state["authenticated"] = True
-            del st.session_state["password"]  # Don't store password
+            st.session_state["login_error"] = False
+            # Don't store password
+            if "password" in st.session_state:
+                del st.session_state["password"]
         else:
             st.session_state["authenticated"] = False
+            st.session_state["login_error"] = True
 
     # First run or not authenticated
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
+    if "login_attempted" not in st.session_state:
+        st.session_state["login_attempted"] = False
+    if "login_error" not in st.session_state:
+        st.session_state["login_error"] = False
 
     # Already authenticated
     if st.session_state["authenticated"]:
@@ -67,15 +76,9 @@ def check_password(correct_password: str) -> bool:
             placeholder="Dashboard password...",
         )
 
-        if (
-            st.session_state.get("authenticated") == False
-            and st.session_state.get("password") is None
-        ):
-            # Only show error after a failed attempt
-            if "login_attempted" in st.session_state:
-                st.error("❌ Incorrect password. Please try again.")
-
-        st.session_state["login_attempted"] = True
+        # Only show error after an actual failed attempt
+        if st.session_state.get("login_attempted") and st.session_state.get("login_error"):
+            st.error("❌ Incorrect password. Please try again.")
 
     return False
 
@@ -85,6 +88,8 @@ def logout():
     st.session_state["authenticated"] = False
     if "login_attempted" in st.session_state:
         del st.session_state["login_attempted"]
+    if "login_error" in st.session_state:
+        del st.session_state["login_error"]
 
 
 def render_logout_button():
