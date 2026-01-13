@@ -50,6 +50,9 @@ data/logs/*.log
 # Local config (contains secrets at runtime)
 data/config.json
 
+# Streamlit secrets (local only - use Streamlit Cloud UI for production)
+.streamlit/secrets.toml
+
 # Cache
 .cache/
 *.cache
