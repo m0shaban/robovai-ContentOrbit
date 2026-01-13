@@ -40,27 +40,15 @@ async def run_chatbot():
 
 
 async def health_handler(request):
-    """Health check endpoint"""
+    """Simple health check for Render to keep the service alive"""
     return web.Response(text="OK", status=200)
-
-
-async def landing_handler(request):
-    """Serve landing page"""
-    from pathlib import Path
-    landing_path = Path(__file__).parent / "landing.html"
-    try:
-        with open(landing_path, 'r', encoding='utf-8') as f:
-            html_content = f.read()
-        return web.Response(text=html_content, content_type='text/html', status=200)
-    except FileNotFoundError:
-        return web.Response(text="<h1>ContentOrbit Enterprise</h1><p>System is running. <a href='https://robovai-contentorbit.streamlit.app'>Open Dashboard</a></p>", content_type='text/html', status=200)
 
 
 async def run_health_server():
     """Run a simple HTTP server for health checks"""
     app = web.Application()
     app.router.add_get('/health', health_handler)
-    app.router.add_get('/', landing_handler)
+    app.router.add_get('/', health_handler)
     
     port = int(os.getenv('PORT', 8080))
     runner = web.AppRunner(app)
