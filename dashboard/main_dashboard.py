@@ -5,6 +5,7 @@ Premium UI/UX Dashboard with Setup Wizard for Beginners
 """
 
 import streamlit as st
+import os
 import sys
 from pathlib import Path
 
@@ -568,8 +569,8 @@ st.markdown(
 # ═══════════════════════════════════════════════════════════════════════════════
 # AUTHENTICATION
 # ═══════════════════════════════════════════════════════════════════════════════
-
-import os
+# AUTHENTICATION & SECRETS
+# ═══════════════════════════════════════════════════════════════════════════════
 
 # Support both .env (local) and st.secrets (Streamlit Community)
 def get_secret(key: str, default: str = ""):
