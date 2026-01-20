@@ -167,39 +167,39 @@ class ContentOrchestrator:
 
             # ═══════════════════════════════════════════════════════════════
             # STEP 2: GENERATE ASSET CONTENT (The Hubs)
-            # 🎯 NEW ORDER: Dev.to FIRST so Blogger can link to it
+            # Blogger FIRST so Dev.to canonical_url points to robovai.tech
             # ═══════════════════════════════════════════════════════════════
 
-            # 2A: Dev.to Article (English - Tech only) - FIRST for cross-linking
+            # 2A: Blogger Article (Arabic)
+            blogger_url = None
+            if (
+                self.config.app_config.schedule.blogger_enabled
+                and self.blogger.is_configured()
+            ):
+                logger.info("📝 Step 2A: Generating Blogger article (Arabic)...")
+                blogger_url = await self._publish_to_blogger(
+                    article, devto_url=None, image_url=image_url
+                )
+                if blogger_url:
+                    result.blogger_url = blogger_url
+                    result.steps_completed.append("blogger")
+                    logger.info(f"✅ Blogger published: {blogger_url}")
+
+            # 2B: Dev.to Article (English - Tech only) - canonical points to Blogger
             devto_url = None
             if (
                 self.config.app_config.schedule.devto_enabled
                 and self.devto.is_configured()
                 and self._should_post_to_devto(article)
             ):
-                logger.info("📝 Step 2A: Generating Dev.to article (English)...")
+                logger.info("📝 Step 2B: Generating Dev.to article (English)...")
                 devto_url = await self._publish_to_devto(
-                    article, blogger_url=None, image_url=image_url
+                    article, blogger_url=blogger_url, image_url=image_url
                 )
                 if devto_url:
                     result.devto_url = devto_url
                     result.steps_completed.append("devto")
                     logger.info(f"✅ Dev.to published: {devto_url}")
-
-            # 2B: Blogger Article (Arabic) - WITH link to Dev.to
-            blogger_url = None
-            if (
-                self.config.app_config.schedule.blogger_enabled
-                and self.blogger.is_configured()
-            ):
-                logger.info("📝 Step 2B: Generating Blogger article (Arabic)...")
-                blogger_url = await self._publish_to_blogger(
-                    article, devto_url=devto_url, image_url=image_url
-                )
-                if blogger_url:
-                    result.blogger_url = blogger_url
-                    result.steps_completed.append("blogger")
-                    logger.info(f"✅ Blogger published: {blogger_url}")
 
             # 2C: Update Dev.to with Blogger link (if both published)
             # Note: This would require editing the Dev.to post - future enhancement
@@ -352,7 +352,7 @@ class ContentOrchestrator:
                 title=content.title,
                 content=final_content,
                 tags=content.tags,
-                canonical_url=article.original_url,
+                canonical_url=blogger_url or self.cta.links.blogger_home,
                 cover_image=image_url,
             )
 
@@ -383,8 +383,11 @@ class ContentOrchestrator:
         """Generate and publish to Telegram with smart CTA"""
         try:
             # 🎯 Use CTA Strategy for Telegram (Hub - All Links)
-            # Generate AI summary first
-            summary = article.summary or article.content[:300]
+            # Generate an Egyptian Arabic summary (source might be English)
+            try:
+                summary = await self.llm.generate_egyptian_arabic_summary(article)
+            except Exception:
+                summary = (article.summary or article.content[:300] or "").strip()
 
             # Use CTA strategy for structured message
             post_text = self.cta.get_telegram_message(
@@ -470,8 +473,25 @@ class ContentOrchestrator:
         self, article: FetchedArticle
     ) -> Optional[str]:
         """Use RSS/og:image if available; otherwise generate a branded OG image and upload it."""
-        if getattr(article, "image_url", None):
-            return article.image_url
+        existing = getattr(article, "image_url", None)
+        if existing:
+            # Prefer stable/public hosts for cover images.
+            stable_hosts = ("i.ibb.co", "ibb.co", "robovai.tech", "www.robovai.tech")
+            try:
+                host = existing.split("/", 3)[2].lower()
+            except Exception:
+                host = ""
+            if host and any(h == host or host.endswith("." + h) for h in stable_hosts):
+                return existing
+
+            # Validate external images; if inaccessible, fallback to generated.
+            try:
+                async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                    r = await client.head(existing, headers={"User-Agent": "Mozilla/5.0"})
+                    if r.status_code < 400 and "image" in (r.headers.get("content-type") or "").lower():
+                        return existing
+            except Exception:
+                pass
 
         try:
             hook = (article.summary or "").strip()[:110] or None

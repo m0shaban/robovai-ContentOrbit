@@ -61,7 +61,7 @@ class PlatformLinks:
     telegram_hub_url: str = "https://t.me/robovai_hub"
     facebook_page: str = "https://www.facebook.com/robovaisolutions"
     devto_profile: str = "https://dev.to/mohamedshabanai/"
-    blogger_home: str = "https://robovai.blogspot.com"
+    blogger_home: str = "https://www.robovai.tech/"
 
 
 class CTAStrategy:

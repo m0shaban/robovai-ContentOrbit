@@ -430,6 +430,42 @@ Answer:"""
 
         return post
 
+    async def generate_egyptian_arabic_summary(
+        self, article: FetchedArticle, max_words: int = 90
+    ) -> str:
+        """Generate a short Egyptian Arabic summary (no English, no links).
+
+        We use this to keep Telegram posts consistently Egyptian Arabic even when
+        the RSS source is English.
+        """
+        prompts = self.config.app_config.prompts
+
+        system_prompt = f"""أنت كاتب سوشيال ميديا مصري لـ "{prompts.brand_name}".
+
+قواعد صارمة:
+1) اكتب بالعربي المصري فقط (ممنوع الإنجليزية).
+2) 2-4 جمل قصيرة.
+3) ممنوع الروابط.
+4) ممنوع تكرار عنوان المقال.
+5) خلي الملخص مفهوم لحد مش متخصص.
+"""
+
+        src = (article.summary or article.content or "").strip()
+        src = re.sub(r"\s+", " ", src)
+        src = src[:1200]
+
+        user_prompt = (
+            f"عنوان المقال (للسياق فقط): {article.title}\n\n"
+            f"نص/ملخص المصدر:\n{src}\n\n"
+            f"اكتب ملخص مصري في حدود {max_words} كلمة."
+        )
+
+        out = await self._generate(user_prompt, system_prompt=system_prompt, temperature=0.6, max_tokens=220)
+        out = out.strip()
+        # Defensive cleanup: strip any accidental URLs/English remnants.
+        out = re.sub(r"https?://\S+", "", out).strip()
+        return out
+
     # ═══════════════════════════════════════════════════════════════════════════
     # FACEBOOK POST GENERATION
     # ═══════════════════════════════════════════════════════════════════════════
