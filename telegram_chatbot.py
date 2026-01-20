@@ -48,6 +48,10 @@ class AskState(StatesGroup):
     waiting_for_question = State()
 
 
+class PromptEditState(StatesGroup):
+    waiting_for_prompt_text = State()
+
+
 def is_admin(config: ConfigManager, user_id: int) -> bool:
     tg = config.app_config.telegram
     return bool(tg and user_id in (tg.admin_user_ids or []))
@@ -61,9 +65,46 @@ def main_menu_kb(is_admin_user: bool):
     if is_admin_user:
         kb.button(text="🚀 نفّذ النشر الآن", callback_data="menu:run_pipeline")
         kb.button(text="⚙️ إعدادات البوت", callback_data="menu:settings")
+        kb.button(text="📝 تعديل البرومبت", callback_data="menu:prompts")
         kb.button(text="👥 إعدادات الجروبات", callback_data="menu:groups")
     kb.adjust(2)
     return kb.as_markup()
+
+
+def prompts_menu_kb():
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📱 برومبت تيليجرام", callback_data="prompts:telegram")
+    kb.button(text="📝 برومبت Blogger (AR)", callback_data="prompts:blogger")
+    kb.button(text="💻 برومبت Dev.to (EN)", callback_data="prompts:devto")
+    kb.button(text="📘 برومبت فيسبوك", callback_data="prompts:facebook")
+    kb.button(text="⬅️ رجوع", callback_data="menu:settings")
+    kb.adjust(2)
+    return kb.as_markup()
+
+
+def _get_prompt_value(config: ConfigManager, key: str) -> str:
+    prompts = config.app_config.prompts
+    if key == "telegram":
+        return prompts.telegram_post_prompt
+    if key == "blogger":
+        return prompts.blogger_article_prompt
+    if key == "devto":
+        return prompts.devto_article_prompt
+    if key == "facebook":
+        return prompts.facebook_post_prompt
+    return ""
+
+
+def _update_prompt(config: ConfigManager, key: str, value: str) -> bool:
+    if key == "telegram":
+        return config.update_prompts(telegram_prompt=value)
+    if key == "blogger":
+        return config.update_prompts(blogger_prompt=value)
+    if key == "devto":
+        return config.update_prompts(devto_prompt=value)
+    if key == "facebook":
+        return config.update_prompts(facebook_prompt=value)
+    return False
 
 
 def links_text() -> str:
@@ -252,6 +293,21 @@ async def build_app() -> (
             await call.answer()
             return
 
+        if action == "prompts":
+            if not admin:
+                await call.answer("غير مسموح", show_alert=True)
+                return
+            await state.clear()
+            await call.message.edit_text(
+                "📝 <b>تعديل البرومبت</b>\n\n"
+                "اختار أي برومبت تحب تعدله.\n"
+                "معلومة: التعديل بيتسجل في config.json على السيرفر.\n",
+                reply_markup=prompts_menu_kb(),
+                parse_mode=ParseMode.HTML,
+            )
+            await call.answer()
+            return
+
         if action == "groups":
             if not admin:
                 await call.answer("غير مسموح", show_alert=True)
@@ -267,6 +323,77 @@ async def build_app() -> (
             return
 
         await call.answer()
+
+    # Prompt editing menu
+    @router.callback_query(F.data.startswith("prompts:"))
+    async def prompt_pick(call: CallbackQuery, state: FSMContext):
+        admin = is_admin(config, call.from_user.id)
+        if not admin:
+            await call.answer("غير مسموح", show_alert=True)
+            return
+
+        key = call.data.split(":", 1)[1]
+        current = _get_prompt_value(config, key)
+        short = (current or "").strip()
+        if len(short) > 1200:
+            short = short[:1200] + "…"
+
+        await state.set_state(PromptEditState.waiting_for_prompt_text)
+        await state.update_data(prompt_key=key)
+
+        await call.message.edit_text(
+            "📝 <b>تعديل البرومبت</b>\n\n"
+            f"<b>النوع:</b> <code>{key}</code>\n\n"
+            "<b>البرومبت الحالي (مختصر):</b>\n"
+            f"<blockquote>{short}</blockquote>\n\n"
+            "ابعت البرومبت الجديد بالكامل في رسالة واحدة.\n"
+            "(ولو عايز تلغي: اكتب /cancel)",
+            reply_markup=prompts_menu_kb(),
+            parse_mode=ParseMode.HTML,
+        )
+        await call.answer()
+
+    @router.message(Command("cancel"))
+    async def cancel_cmd(message: Message, state: FSMContext):
+        await state.clear()
+        admin = is_admin(config, message.from_user.id)
+        await message.answer("✅ تم الإلغاء.", reply_markup=main_menu_kb(admin))
+
+    @router.message(PromptEditState.waiting_for_prompt_text)
+    async def prompt_save(message: Message, state: FSMContext):
+        admin = is_admin(config, message.from_user.id)
+        if not admin:
+            await message.answer("غير مسموح")
+            await state.clear()
+            return
+
+        data = await state.get_data()
+        key = data.get("prompt_key")
+        new_prompt = (message.text or "").strip()
+
+        if not key or not new_prompt:
+            await message.answer("⚠️ ابعت البرومبت كنص واضح.")
+            return
+
+        ok = _update_prompt(config, key, new_prompt)
+        if ok:
+            # Best-effort reload for long-running workers
+            try:
+                config.reload()
+            except Exception:
+                pass
+            await message.answer(
+                "✅ تمام! اتسجل البرومبت الجديد.\n"
+                "هيتطبق على أول نشر جاي.",
+                reply_markup=main_menu_kb(admin),
+            )
+        else:
+            await message.answer(
+                "❌ حصلت مشكلة وأنا بحفظ البرومبت. جرّب تاني.",
+                reply_markup=main_menu_kb(admin),
+            )
+
+        await state.clear()
 
     # Admin: set daily limit
     @router.message(Command("set_daily_limit"))

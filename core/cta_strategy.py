@@ -56,9 +56,11 @@ class PlatformLinks:
     blogger_url: Optional[str] = None
     facebook_url: Optional[str] = None
     telegram_url: Optional[str] = None
-    telegram_channel: str = "@RoboVAI"  # Your channel username
-    facebook_page: str = "https://facebook.com/103994332748066"
-    devto_profile: str = "https://dev.to/robovai"
+    # Public hubs/pages (can be overridden by passing PlatformLinks into CTAStrategy)
+    telegram_channel: str = "@robovai_hub"  # channel username (without https://t.me/)
+    telegram_hub_url: str = "https://t.me/robovai_hub"
+    facebook_page: str = "https://www.facebook.com/robovaisolutions"
+    devto_profile: str = "https://dev.to/mohamedshabanai/"
     blogger_home: str = "https://robovai.blogspot.com"
 
 
@@ -101,7 +103,10 @@ class CTAStrategy:
         - Encourage social sharing
         """
 
-        cta_html = """
+        telegram_url = self.links.telegram_hub_url
+        facebook_url = self.links.facebook_page
+
+        cta_html = f"""
 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 15px; margin: 40px 0; direction: rtl;">
     
     <!-- Main CTA Section -->
@@ -118,7 +123,7 @@ class CTAStrategy:
     <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 25px;">
         
         <!-- Telegram Button (Primary) -->
-        <a href="https://t.me/RoboVAI" target="_blank" 
+        <a href="{telegram_url}" target="_blank" 
            style="display: inline-flex; align-items: center; gap: 8px; 
                   background: #0088cc; color: white; padding: 12px 24px; 
                   border-radius: 50px; text-decoration: none; font-weight: bold;
@@ -128,7 +133,7 @@ class CTAStrategy:
         </a>
         
         <!-- Facebook Button -->
-        <a href="https://facebook.com/103994332748066" target="_blank"
+        <a href="{facebook_url}" target="_blank"
            style="display: inline-flex; align-items: center; gap: 8px;
                   background: #1877f2; color: white; padding: 12px 24px;
                   border-radius: 50px; text-decoration: none; font-weight: bold;
@@ -197,7 +202,10 @@ class CTAStrategy:
         - Cross-link to Arabic version for bilingual readers
         """
 
-        cta_md = """
+        telegram_url = self.links.telegram_hub_url
+        blogger_home = self.links.blogger_home
+
+        cta_md = f"""
 ---
 
 ## 🚀 Enjoyed this article?
@@ -210,8 +218,8 @@ If you found this helpful, here's how you can support:
 - **Follow** me for more tech content
 
 ### 📱 Stay Connected
-- **Telegram**: Join our tech community for instant updates → [t.me/RoboVAI](https://t.me/RoboVAI)
-- **More Articles**: Check out my blog → [robovai.blogspot.com](https://robovai.blogspot.com)
+- **Telegram**: Join our updates hub → [{telegram_url}]({telegram_url})
+- **More Articles**: Check out the Arabic hub → [{blogger_home}]({blogger_home})
 
 """
 
@@ -249,6 +257,8 @@ If you found this helpful, here's how you can support:
         - Hashtags for discovery
         """
 
+        telegram_url = self.links.telegram_hub_url
+
         post = f"""{emoji} {title}
 
 {hook}
@@ -259,8 +269,8 @@ If you found this helpful, here's how you can support:
 
 ━━━━━━━━━━━━━━━━━━━━
 
-💬 شاركنا رأيك في التعليقات!
-📱 تابعنا على تيليجرام: t.me/RoboVAI
+    💬 قولنا رأيك في الكومنتات 👇
+    📣 للمزيد (وتحديثات أول بأول): {telegram_url}
 
 #تقنية #تكنولوجيا #برمجة #ذكاء_اصطناعي #RoboVAI #ContentOrbit"""
 
@@ -280,6 +290,8 @@ If you found this helpful, here's how you can support:
 
         points_text = "\n".join([f"✅ {point}" for point in key_points[:5]])
 
+        telegram_url = self.links.telegram_hub_url
+
         post = f"""🚀 {title}
 
 في هذا المقال ستتعلم:
@@ -296,7 +308,7 @@ If you found this helpful, here's how you can support:
 ❤️ أعجبك المحتوى؟ 
 → تابع الصفحة
 → شارك مع أصدقائك
-→ انضم لقناتنا على تيليجرام: t.me/RoboVAI
+→ انضم لقناة التليجرام: {telegram_url}
 
 #تعلم #تطوير #برمجة #تقنية"""
 
@@ -324,13 +336,18 @@ If you found this helpful, here's how you can support:
         - Easy to share format
         """
 
-        message = f"""📢 <b>مقال جديد!</b>
+        telegram_url = self.links.telegram_hub_url
+        facebook_url = self.links.facebook_page
 
-<b>{title}</b>
+        # Telegram UX: short lines, clear sections, Egyptian Arabic tone.
+        safe_title = title
+        safe_summary = summary
 
-{summary}
-
-"""
+        message = (
+            "📣 <b>نزلنا محتوى جديد!</b>\n\n"
+            f"<b>{safe_title}</b>\n\n"
+            f"{safe_summary}\n\n"
+        )
 
         # Add key points if provided
         if key_points:
@@ -341,23 +358,24 @@ If you found this helpful, here's how you can support:
 
         # Links section
         message += "━━━━━━━━━━━━━━━━━━━━\n\n"
-        message += "📖 <b>اقرأ المقال:</b>\n\n"
+        message += "🔗 <b>الروابط:</b>\n"
 
         if blogger_url:
-            message += f"🇸🇦 <b>بالعربية:</b>\n{blogger_url}\n\n"
+            message += f"• 🇪🇬 <a href=\"{blogger_url}\">اقرأ المقال بالعربي</a>\n"
 
         if devto_url:
-            message += f"🇺🇸 <b>English:</b>\n{devto_url}\n\n"
+            message += f"• 🌍 <a href=\"{devto_url}\">نسخة إنجليزي (Dev.to)</a>\n"
+
+        message += f"• 📣 <a href=\"{telegram_url}\">تابع القناة على تيليجرام</a>\n"
+        message += f"• 👍 <a href=\"{facebook_url}\">صفحتنا على فيسبوك</a>\n\n"
 
         # Engagement CTA
-        message += """━━━━━━━━━━━━━━━━━━━━
-
-<b>🔔 لا تفوّت أي مقال!</b>
-• فعّل الإشعارات 🔔
-• شارك مع أصدقائك 📤
-• تابعنا على فيسبوك: fb.com/103994332748066
-
-#RoboVAI #تقنية #محتوى_جديد"""
+        message += (
+            "━━━━━━━━━━━━━━━━━━━━\n\n"
+            "💬 <b>سؤال سريع:</b> إيه أكتر نقطة شدتّك؟\n"
+            "📤 لو شايفه مفيد… ابعته لحد مهتم 👌\n\n"
+            "#RoboVAI #تقنية #محتوى_جديد"
+        )
 
         return message
 
@@ -375,11 +393,11 @@ If you found this helpful, here's how you can support:
 
         return f"""⚡️ <b>{title}</b>
 
-{one_liner}
+    {one_liner}
 
-👉 <a href="{blogger_url}">اقرأ الآن</a>
+    👉 <a href="{blogger_url}">اقرأ دلوقتي</a>
 
-❤️ للمزيد تابع @RoboVAI"""
+    ❤️ للمزيد تابع {self.links.telegram_channel}"""
 
     # ═══════════════════════════════════════════════════════════════════════════
     # 🔄 CROSS-PLATFORM INTEGRATION

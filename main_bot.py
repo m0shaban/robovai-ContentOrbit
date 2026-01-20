@@ -153,6 +153,12 @@ class ContentOrbitBot:
         logger.info("=" * 40)
 
         try:
+            # Hot-reload config so prompt/CTA edits (via dashboard/Telegram) apply.
+            try:
+                self.config.reload()
+            except Exception:
+                pass
+
             # Check if within active hours
             if not self._is_active_hours():
                 logger.info("💤 Outside active hours, skipping...")
@@ -184,6 +190,74 @@ class ContentOrbitBot:
                     logger.info(f"   Steps: {' -> '.join(result.steps_completed)}")
                 else:
                     logger.warning(f"⚠️ Pipeline completed with errors: {result.error}")
+
+                # Notify admins with a compact summary + links
+                try:
+                    from core.publisher.telegram_publisher import TelegramPublisher
+
+                    tg = TelegramPublisher(self.config)
+
+                    def _esc(s: str) -> str:
+                        return (
+                            (s or "")
+                            .replace("&", "&amp;")
+                            .replace("<", "&lt;")
+                            .replace(">", "&gt;")
+                            .replace('"', "&quot;")
+                        )
+
+                    title = _esc(result.article.title) if result.article else "-"
+                    steps = " → ".join(result.steps_completed or [])
+
+                    # Best-effort Telegram message link
+                    tg_link = None
+                    ch = (self.config.app_config.telegram.channel_id or "").strip()
+                    if result.telegram_message_id and ch.startswith("@"): 
+                        tg_link = f"https://t.me/{ch[1:]}/{result.telegram_message_id}"
+
+                    # Best-effort Facebook post link
+                    fb_link = None
+                    page_id = (
+                        (self.config.app_config.facebook.page_id or "").strip()
+                        if self.config.app_config.facebook
+                        else ""
+                    )
+                    if result.facebook_post_id and page_id:
+                        post_id = str(result.facebook_post_id)
+                        post_tail = post_id.split("_", 1)[-1] if "_" in post_id else post_id
+                        fb_link = f"https://www.facebook.com/{page_id}/posts/{post_tail}"
+
+                    if result.success:
+                        msg = (
+                            "✅ <b>تم النشر بنجاح</b>\n\n"
+                            f"📰 <b>{title}</b>\n"
+                            f"🧩 <b>Steps:</b> { _esc(steps) }\n\n"
+                        )
+                        if result.blogger_url:
+                            msg += f"• 🇪🇬 <a href=\"{result.blogger_url}\">Blogger</a>\n"
+                        if result.devto_url:
+                            msg += f"• 🌍 <a href=\"{result.devto_url}\">Dev.to</a>\n"
+                        if tg_link:
+                            msg += f"• 📣 <a href=\"{tg_link}\">Telegram</a>\n"
+                        elif result.telegram_message_id:
+                            msg += f"• 📣 Telegram Msg: <code>{result.telegram_message_id}</code>\n"
+                        if fb_link:
+                            msg += f"• 👍 <a href=\"{fb_link}\">Facebook</a>\n"
+                        elif result.facebook_post_id:
+                            msg += f"• 👍 Facebook Post: <code>{_esc(str(result.facebook_post_id))}</code>\n"
+                    else:
+                        err = _esc(result.error or "Unknown error")
+                        msg = (
+                            "⚠️ <b>النشر خلّص وفيه مشكلة</b>\n\n"
+                            f"📰 <b>{title}</b>\n"
+                            f"🧩 <b>Steps:</b> { _esc(steps) }\n\n"
+                            f"<b>Error:</b> <code>{err}</code>"
+                        )
+
+                    await tg.notify_admins(msg)
+                    await tg.close()
+                except Exception as _e:
+                    logger.warning(f"Admin notify failed: {_e}")
 
             finally:
                 await orchestrator.close()

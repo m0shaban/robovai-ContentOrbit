@@ -567,6 +567,8 @@ st.markdown(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# AUTHENTICATION
+# ═══════════════════════════════════════════════════════════════════════════════
 # AUTHENTICATION & SECRETS
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -595,13 +597,13 @@ if not check_password(DASHBOARD_PASSWORD):
 def get_config():
     """Get cached config manager"""
     try:
+        return ConfigManager()
+    except Exception as e:
+        st.error(f"⚠️ Config initialization error: {e}")
+        # Return minimal config for dashboard-only mode
         config = ConfigManager()
         config.load(create_if_missing=True)
         return config
-    except Exception as e:
-        # Return None if config can't be loaded - dashboard will handle this
-        st.warning(f"⚠️ Config unavailable (demo mode): {str(e)[:50]}")
-        return None
 
 
 @st.cache_resource
@@ -616,18 +618,6 @@ def get_db():
 
 config = get_config()
 db = get_db()
-
-# Check if we're in demo mode (no config available)
-DEMO_MODE = config is None
-
-if DEMO_MODE:
-    st.error("⚠️ Dashboard requires configuration. Please deploy with proper config files.")
-    st.info("📋 For Streamlit Community, the full dashboard requires a backend server (Render).")
-    st.markdown("---")
-    st.markdown("### Quick Links:")
-    st.markdown("- 🤖 [Try the Bot](https://t.me/robovai_hub_bot)")
-    st.markdown("- 🔧 [Render Dashboard](https://robovai-contentorbit.onrender.com)")
-    st.stop()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -685,13 +675,10 @@ with st.sidebar:
         from core.models import SystemStats
         stats = SystemStats(
             total_posts=0,
-            successful_posts=0,
-            failed_posts=0,
-            total_feeds=len(config.feeds) if config.feeds else 0,
+            active_feeds=len(config.feeds) if config.feeds else 0,
             is_running=False,
-            last_run=None,
-            next_run=None,
-            errors_24h=0,
+            last_post_time=None,
+            last_error_time=None,
         )
 
     # Safely get max_posts_per_day
