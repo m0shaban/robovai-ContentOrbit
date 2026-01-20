@@ -212,7 +212,7 @@ class ContentOrbitBot:
                     # Best-effort Telegram message link
                     tg_link = None
                     ch = (self.config.app_config.telegram.channel_id or "").strip()
-                    if result.telegram_message_id and ch.startswith("@"): 
+                    if result.telegram_message_id and ch.startswith("@"):
                         tg_link = f"https://t.me/{ch[1:]}/{result.telegram_message_id}"
 
                     # Best-effort Facebook post link
@@ -224,8 +224,12 @@ class ContentOrbitBot:
                     )
                     if result.facebook_post_id and page_id:
                         post_id = str(result.facebook_post_id)
-                        post_tail = post_id.split("_", 1)[-1] if "_" in post_id else post_id
-                        fb_link = f"https://www.facebook.com/{page_id}/posts/{post_tail}"
+                        post_tail = (
+                            post_id.split("_", 1)[-1] if "_" in post_id else post_id
+                        )
+                        fb_link = (
+                            f"https://www.facebook.com/{page_id}/posts/{post_tail}"
+                        )
 
                     if result.success:
                         msg = (
@@ -234,15 +238,15 @@ class ContentOrbitBot:
                             f"🧩 <b>Steps:</b> { _esc(steps) }\n\n"
                         )
                         if result.blogger_url:
-                            msg += f"• 🇪🇬 <a href=\"{result.blogger_url}\">Blogger</a>\n"
+                            msg += f'• 🇪🇬 <a href="{result.blogger_url}">Blogger</a>\n'
                         if result.devto_url:
-                            msg += f"• 🌍 <a href=\"{result.devto_url}\">Dev.to</a>\n"
+                            msg += f'• 🌍 <a href="{result.devto_url}">Dev.to</a>\n'
                         if tg_link:
-                            msg += f"• 📣 <a href=\"{tg_link}\">Telegram</a>\n"
+                            msg += f'• 📣 <a href="{tg_link}">Telegram</a>\n'
                         elif result.telegram_message_id:
                             msg += f"• 📣 Telegram Msg: <code>{result.telegram_message_id}</code>\n"
                         if fb_link:
-                            msg += f"• 👍 <a href=\"{fb_link}\">Facebook</a>\n"
+                            msg += f'• 👍 <a href="{fb_link}">Facebook</a>\n'
                         elif result.facebook_post_id:
                             msg += f"• 👍 Facebook Post: <code>{_esc(str(result.facebook_post_id))}</code>\n"
                     else:

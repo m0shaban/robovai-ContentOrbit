@@ -572,6 +572,7 @@ st.markdown(
 # AUTHENTICATION & SECRETS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 # Support both .env (local) and st.secrets (Streamlit Community)
 def get_secret(key: str, default: str = ""):
     """Get secret from either st.secrets or environment"""
@@ -581,6 +582,7 @@ def get_secret(key: str, default: str = ""):
     except:
         # Fallback to environment variable
         return os.environ.get(key, default)
+
 
 DASHBOARD_PASSWORD = get_secret("DASHBOARD_PASSWORD", "admin123")
 
@@ -673,6 +675,7 @@ with st.sidebar:
     else:
         # Mock stats for view-only mode
         from core.models import SystemStats
+
         stats = SystemStats(
             total_posts=0,
             active_feeds=len(config.feeds) if config.feeds else 0,

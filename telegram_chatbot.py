@@ -17,6 +17,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+import os
 
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.enums import ParseMode
@@ -383,8 +384,7 @@ async def build_app() -> (
             except Exception:
                 pass
             await message.answer(
-                "✅ تمام! اتسجل البرومبت الجديد.\n"
-                "هيتطبق على أول نشر جاي.",
+                "✅ تمام! اتسجل البرومبت الجديد.\n" "هيتطبق على أول نشر جاي.",
                 reply_markup=main_menu_kb(admin),
             )
         else:
@@ -503,9 +503,56 @@ async def build_app() -> (
 async def main():
     dp, bot, config, db, llm = await build_app()
     try:
+        # Best-effort: ensure we're in polling mode and clear any webhook.
+        try:
+            await bot.delete_webhook(drop_pending_updates=True)
+        except Exception:
+            pass
+
+        # Avoid TelegramConflictError during deploy overlap by using a simple lock.
+        lock_path = Path(os.getenv("TG_POLL_LOCK_PATH", "data/telegram_polling.lock"))
+        stale_seconds = int(os.getenv("TG_POLL_LOCK_STALE_SECONDS", "600"))
+        max_wait_seconds = int(os.getenv("TG_POLL_LOCK_MAX_WAIT_SECONDS", "120"))
+        started_wait = datetime.utcnow().timestamp()
+
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+        while True:
+            try:
+                fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(str(datetime.utcnow().timestamp()))
+                break
+            except FileExistsError:
+                try:
+                    age = datetime.utcnow().timestamp() - lock_path.stat().st_mtime
+                except Exception:
+                    age = 0
+
+                if age > stale_seconds:
+                    try:
+                        lock_path.unlink(missing_ok=True)
+                        continue
+                    except Exception:
+                        pass
+
+                if datetime.utcnow().timestamp() - started_wait > max_wait_seconds:
+                    logger.warning(
+                        "Telegram polling lock still held; continuing anyway (may conflict)."
+                    )
+                    break
+
+                await asyncio.sleep(3)
+
         logger.info("🤖 Telegram Chatbot started (polling)")
-        await dp.start_polling(bot)
+        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
+        try:
+            Path(os.getenv("TG_POLL_LOCK_PATH", "data/telegram_polling.lock")).unlink(
+                missing_ok=True
+            )
+        except Exception:
+            pass
         try:
             await llm.close()
         except Exception:

@@ -10,11 +10,12 @@ st.set_page_config(
     page_title="ContentOrbit Enterprise",
     page_icon="🚀",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
 )
 
 # Custom CSS for professional business/tech design
-st.markdown("""
+st.markdown(
+    """
 <style>
     /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
@@ -186,10 +187,13 @@ st.markdown("""
         box-shadow: 0 6px 25px rgba(99, 102, 241, 0.6);
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # Hero Section
-st.markdown("""
+st.markdown(
+    """
 <div class="hero">
     <div class="hero-emoji">🚀</div>
     <h1>ContentOrbit Enterprise</h1>
@@ -199,7 +203,9 @@ st.markdown("""
         النظام يعمل بكفاءة عالية
     </div>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # Features Section
 st.markdown("## 🎯 المميزات الرئيسية")
@@ -207,58 +213,77 @@ st.markdown("## 🎯 المميزات الرئيسية")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <div class="feature-icon">🤖</div>
         <div class="feature-title">نشر تلقائي ذكي</div>
         <div class="feature-desc">توليد محتوى باستخدام AI ونشره تلقائياً على Telegram، Blogger، Dev.to، وFacebook</div>
     </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("""
+    """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
     <div class="feature-card">
         <div class="feature-icon">📊</div>
         <div class="feature-title">Dashboard متقدم</div>
         <div class="feature-desc">لوحة تحكم شاملة لإدارة المحتوى، متابعة الإحصائيات، والتحكم الكامل</div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 with col2:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <div class="feature-icon">🎨</div>
         <div class="feature-title">توليد صور احترافي</div>
         <div class="feature-desc">إنشاء صور جذابة تلقائياً مع دعم كامل للعربية RTL واستضافة فورية</div>
     </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("""
+    """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
     <div class="feature-card">
         <div class="feature-icon">🔗</div>
         <div class="feature-title">استراتيجية CTA</div>
         <div class="feature-desc">نظام Hub & Spoke للتسويق الذكي وتوجيه الزوار بين المنصات</div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 with col3:
-    st.markdown("""
+    st.markdown(
+        """
     <div class="feature-card">
         <div class="feature-icon">💬</div>
         <div class="feature-title">Chatbot تفاعلي</div>
         <div class="feature-desc">بوت تيليجرام ذكي للرد على الأسئلة وإدارة الجروبات مع نظام حصص يومية</div>
     </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("""
+    """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
     <div class="feature-card">
         <div class="feature-icon">🛡️</div>
         <div class="feature-title">آمن ومستقر</div>
         <div class="feature-desc">معمارية enterprise-grade مع حماية البيانات وإدارة متقدمة للأخطاء</div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 # Stats Section
-st.markdown("""
+st.markdown(
+    """
 <div class="stats-container">
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
         <div class="stat-box">
@@ -279,30 +304,42 @@ st.markdown("""
         </div>
     </div>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # CTA Section
-st.markdown("""
+st.markdown(
+    """
 <div class="cta-section">
     <h2 style="margin-bottom: 1.5rem; color: #1f2937;">جاهز للبدء؟</h2>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 col_cta1, col_cta2, col_cta3 = st.columns([1, 2, 1])
 
 with col_cta2:
     col_btn1, col_btn2 = st.columns(2)
-    
+
     with col_btn1:
         if st.button("🎯 افتح Dashboard", use_container_width=True):
-            st.markdown('<meta http-equiv="refresh" content="0; url=https://robovai-contentorbit.streamlit.app">', unsafe_allow_html=True)
-    
+            st.markdown(
+                '<meta http-equiv="refresh" content="0; url=https://robovai-contentorbit.streamlit.app">',
+                unsafe_allow_html=True,
+            )
+
     with col_btn2:
         if st.button("💬 جرّب الـ Bot", use_container_width=True):
-            st.markdown('<meta http-equiv="refresh" content="0; url=https://t.me/robovai_hub_bot">', unsafe_allow_html=True)
+            st.markdown(
+                '<meta http-equiv="refresh" content="0; url=https://t.me/robovai_hub_bot">',
+                unsafe_allow_html=True,
+            )
 
 # Tech Stack
-st.markdown("""
+st.markdown(
+    """
 <div class="tech-stack">
     <span class="tech-badge">Python</span>
     <span class="tech-badge">Streamlit</span>
@@ -311,13 +348,18 @@ st.markdown("""
     <span class="tech-badge">Render</span>
     <span class="tech-badge">SQLite</span>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # Footer
 st.markdown("---")
-st.markdown("""
+st.markdown(
+    """
 <div style="text-align: center; color: #6b7280; padding: 2rem 0;">
     <p><strong>ContentOrbit Enterprise</strong> - Powered by RoboVAI Solutions</p>
     <p style="margin-top: 0.5rem; font-size: 0.85rem;">Built with ❤️ using cutting-edge AI technology</p>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)

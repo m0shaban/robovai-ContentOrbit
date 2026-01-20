@@ -12,6 +12,7 @@ This is a **temporary setup** optimized for **free hosting** while you prepare t
 ## 🚀 Part 1: Deploy Unified Bot (Render Free)
 
 ### Prerequisites
+
 - GitHub account
 - Render account (free): https://render.com/
 
@@ -44,20 +45,20 @@ git push origin main
 
 Click "Environment" and add these:
 
-| Key | Value |
-|-----|-------|
-| `TELEGRAM_TOKEN` | Your Telegram bot token |
-| `CHANNEL_ID` | Your Telegram channel ID |
-| `ADMIN_USER_ID` | 624875667 |
-| `GROQ_API_KEY` | Your Groq API key |
-| `DEVTO_API_KEY` | Your Dev.to key |
-| `BLOGGER_BLOG_ID` | Your Blogger blog ID |
-| `BLOGGER_CLIENT_ID` | Your OAuth client ID |
-| `BLOGGER_CLIENT_SECRET` | Your OAuth secret |
-| `BLOGGER_REFRESH_TOKEN` | Your refresh token |
-| `FACEBOOK_PAGE_ID` | Your FB page ID |
-| `FACEBOOK_PAGE_ACCESS_TOKEN` | Your FB token |
-| `IMGBB_API_KEY` | Your ImgBB key |
+| Key                          | Value                    |
+| ---------------------------- | ------------------------ |
+| `TELEGRAM_TOKEN`             | Your Telegram bot token  |
+| `CHANNEL_ID`                 | Your Telegram channel ID |
+| `ADMIN_USER_ID`              | 624875667                |
+| `GROQ_API_KEY`               | Your Groq API key        |
+| `DEVTO_API_KEY`              | Your Dev.to key          |
+| `BLOGGER_BLOG_ID`            | Your Blogger blog ID     |
+| `BLOGGER_CLIENT_ID`          | Your OAuth client ID     |
+| `BLOGGER_CLIENT_SECRET`      | Your OAuth secret        |
+| `BLOGGER_REFRESH_TOKEN`      | Your refresh token       |
+| `FACEBOOK_PAGE_ID`           | Your FB page ID          |
+| `FACEBOOK_PAGE_ACCESS_TOKEN` | Your FB token            |
+| `IMGBB_API_KEY`              | Your ImgBB key           |
 
 4. **Deploy**
 
@@ -75,6 +76,7 @@ Click **"Create Web Service"**. Deployment takes ~5 minutes.
 See: [deploy/streamlit/README.md](streamlit/README.md)
 
 Quick summary:
+
 1. Go to https://share.streamlit.io/
 2. Connect GitHub repo
 3. Set main file: `dashboard/main_dashboard.py`
@@ -86,17 +88,20 @@ Quick summary:
 ## ⚠️ Important Notes (Free Tier Limitations)
 
 ### Render Free
+
 - ✅ Bot runs 24/7 (as long as health endpoint responds)
 - ⚠️ May sleep after 15 min inactivity
 - ⚠️ 750 hours/month free (≈31 days if always on)
 - 💡 Health endpoint at `/health` keeps it awake
 
 ### Streamlit Community
+
 - ✅ Unlimited public apps
 - ⚠️ Apps sleep after inactivity
 - ⚠️ Wake up on first visit (~10 sec delay)
 
 ### Work-around for Sleep
+
 - Set up a free uptime monitor (UptimeRobot.com) to ping `/health` every 5 minutes
 - This keeps Render awake during active hours
 
@@ -105,6 +110,7 @@ Quick summary:
 ## 🔒 Security Checklist
 
 Before going public:
+
 - [ ] Never commit `.env` (already in `.gitignore`)
 - [ ] Use environment variables for all secrets
 - [ ] Keep `DASHBOARD_PASSWORD` strong
@@ -115,6 +121,7 @@ Before going public:
 ## 📈 Selling the Project
 
 When ready to sell:
+
 1. Transfer GitHub repo ownership
 2. Update Render env vars with buyer's keys
 3. Update Streamlit secrets
@@ -125,6 +132,7 @@ When ready to sell:
 ## 💰 Upgrade Path (for buyer)
 
 After sale, recommend upgrading to:
+
 - **Render Starter** ($7/mo): No sleep, better reliability
 - **VPS** (Hetzner €4/mo): Full control, 100% uptime
 
@@ -133,9 +141,11 @@ After sale, recommend upgrading to:
 ## Support
 
 Logs:
+
 - Render: Dashboard → Logs tab
 - Streamlit: App → Manage app → Logs
 
 Common issues:
+
 - Bot not responding: Check Render logs for errors
 - Dashboard not loading: Check Streamlit secrets are set

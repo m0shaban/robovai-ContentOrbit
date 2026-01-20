@@ -2,6 +2,7 @@
 Unified Bot Runner - Combines main_bot.py + telegram_chatbot.py
 Runs both bots in parallel with a simple health endpoint for Render
 """
+
 import asyncio
 import logging
 import os
@@ -10,8 +11,7 @@ from aiohttp import web
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ async def run_main_bot():
     """Run the content publishing bot (main_bot.py)"""
     try:
         from main_bot import ContentOrbitBot
-        
+
         logger.info("🤖 Starting Content Publishing Bot...")
         bot = ContentOrbitBot()
         await bot.start()
@@ -32,7 +32,7 @@ async def run_chatbot():
     """Run the interactive Telegram chatbot (telegram_chatbot.py)"""
     try:
         from telegram_chatbot import start_chatbot
-        
+
         logger.info("💬 Starting Interactive Chatbot...")
         await start_chatbot()
     except Exception as e:
@@ -47,17 +47,17 @@ async def health_handler(request):
 async def run_health_server():
     """Run a simple HTTP server for health checks"""
     app = web.Application()
-    app.router.add_get('/health', health_handler)
-    app.router.add_get('/', health_handler)
-    
-    port = int(os.getenv('PORT', 8080))
+    app.router.add_get("/health", health_handler)
+    app.router.add_get("/", health_handler)
+
+    port = int(os.getenv("PORT", 8080))
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    
+    site = web.TCPSite(runner, "0.0.0.0", port)
+
     logger.info(f"🏥 Health server running on port {port}")
     await site.start()
-    
+
     # Keep running
     await asyncio.Event().wait()
 
@@ -65,13 +65,13 @@ async def run_health_server():
 async def main():
     """Run all services in parallel"""
     logger.info("🚀 Starting Unified Bot Service...")
-    
+
     # Run all tasks concurrently
     await asyncio.gather(
         run_health_server(),  # Health endpoint (required for Render)
-        run_main_bot(),       # Content publishing bot
-        run_chatbot(),        # Interactive chatbot
-        return_exceptions=True
+        run_main_bot(),  # Content publishing bot
+        run_chatbot(),  # Interactive chatbot
+        return_exceptions=True,
     )
 
 

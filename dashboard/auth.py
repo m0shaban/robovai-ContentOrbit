@@ -77,7 +77,9 @@ def check_password(correct_password: str) -> bool:
         )
 
         # Only show error after an actual failed attempt
-        if st.session_state.get("login_attempted") and st.session_state.get("login_error"):
+        if st.session_state.get("login_attempted") and st.session_state.get(
+            "login_error"
+        ):
             st.error("❌ Incorrect password. Please try again.")
 
     return False

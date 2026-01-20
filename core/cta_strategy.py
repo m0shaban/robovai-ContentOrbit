@@ -361,13 +361,13 @@ If you found this helpful, here's how you can support:
         message += "🔗 <b>الروابط:</b>\n"
 
         if blogger_url:
-            message += f"• 🇪🇬 <a href=\"{blogger_url}\">اقرأ المقال بالعربي</a>\n"
+            message += f'• 🇪🇬 <a href="{blogger_url}">اقرأ المقال بالعربي</a>\n'
 
         if devto_url:
-            message += f"• 🌍 <a href=\"{devto_url}\">نسخة إنجليزي (Dev.to)</a>\n"
+            message += f'• 🌍 <a href="{devto_url}">نسخة إنجليزي (Dev.to)</a>\n'
 
-        message += f"• 📣 <a href=\"{telegram_url}\">تابع القناة على تيليجرام</a>\n"
-        message += f"• 👍 <a href=\"{facebook_url}\">صفحتنا على فيسبوك</a>\n\n"
+        message += f'• 📣 <a href="{telegram_url}">تابع القناة على تيليجرام</a>\n'
+        message += f'• 👍 <a href="{facebook_url}">صفحتنا على فيسبوك</a>\n\n'
 
         # Engagement CTA
         message += (

@@ -619,9 +619,7 @@ class DatabaseManager:
     def get_group_settings(self, chat_id: int) -> Dict[str, Any]:
         """Get group settings; creates defaults if missing."""
         with self._get_cursor() as cursor:
-            cursor.execute(
-                "SELECT * FROM group_settings WHERE chat_id = ?", (chat_id,)
-            )
+            cursor.execute("SELECT * FROM group_settings WHERE chat_id = ?", (chat_id,))
             row = cursor.fetchone()
             if not row:
                 cursor.execute(

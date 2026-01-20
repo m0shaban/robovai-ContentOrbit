@@ -68,7 +68,8 @@ class ConfigManager:
         Initialize ConfigManager
 
         Args:
-            config_path: Path to config.json (uses default if None)
+                    "priority": 7,
+                    "is_active": False,
             feeds_path: Path to feeds.json (uses default if None)
         """
         self.config_path = (

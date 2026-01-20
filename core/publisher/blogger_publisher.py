@@ -29,6 +29,10 @@ from core.config_manager import ConfigManager
 logger = logging.getLogger(__name__)
 
 
+class BloggerAuthError(Exception):
+    """Non-retriable authentication/config error for Blogger."""
+
+
 class BloggerPublisher:
     """
     Blogger API Publisher
@@ -111,7 +115,20 @@ class BloggerPublisher:
             return self._access_token
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"Token refresh failed: {e.response.text}")
+            body = e.response.text
+            # Common permanent failure: refresh token revoked/expired.
+            if e.response.status_code == 400:
+                try:
+                    data = e.response.json()
+                except Exception:
+                    data = {}
+                if data.get("error") == "invalid_grant":
+                    logger.error(
+                        "Token refresh failed: invalid_grant (refresh token expired or revoked)."
+                    )
+                    raise BloggerAuthError("invalid_grant")
+
+            logger.error(f"Token refresh failed: {body}")
             raise
 
     async def _get_access_token(self) -> str:
@@ -153,7 +170,11 @@ class BloggerPublisher:
             logger.error("Blogger not configured")
             return None
 
-        access_token = await self._get_access_token()
+        try:
+            access_token = await self._get_access_token()
+        except BloggerAuthError:
+            # Permanent auth issue: don't retry; surface as a clean failure.
+            return None
         client = await self._get_client()
 
         # Build post data
