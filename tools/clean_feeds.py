@@ -45,7 +45,7 @@ def _norm_url(url: str) -> str:
 def _arabic_ratio(text: str) -> float:
     if not text:
         return 0.0
-    arabic = sum(1 for ch in text if "\u0600" <= ch <= "\u06FF")
+    arabic = sum(1 for ch in text if "\u0600" <= ch <= "\u06ff")
     return arabic / max(1, len(text))
 
 
@@ -53,9 +53,10 @@ def _looks_mojibake(text: str) -> bool:
     if not text:
         return False
     # Common UTF-8->Latin-1 mojibake markers.
-    return any(m in text for m in ["Ã", "Â", "Ø", "Ù", "â€", "™", "œ"]) and _arabic_ratio(
-        text
-    ) < 0.05
+    return (
+        any(m in text for m in ["Ã", "Â", "Ø", "Ù", "â€", "™", "œ"])
+        and _arabic_ratio(text) < 0.05
+    )
 
 
 def _try_fix_mojibake_once(text: str) -> Optional[str]:
@@ -200,7 +201,9 @@ async def _validate_active_feeds(
     disabled: List[Dict[str, Any]] = []
     kept_warn: List[Dict[str, Any]] = []
 
-    limits = httpx.Limits(max_connections=concurrency, max_keepalive_connections=concurrency)
+    limits = httpx.Limits(
+        max_connections=concurrency, max_keepalive_connections=concurrency
+    )
     timeout = httpx.Timeout(
         timeout_seconds,
         connect=timeout_seconds,
@@ -228,7 +231,11 @@ async def _validate_active_feeds(
             if result.ok:
                 if result.reason != "ok":
                     kept_warn.append(
-                        {"url": url, "reason": result.reason, "status": result.status_code}
+                        {
+                            "url": url,
+                            "reason": result.reason,
+                            "status": result.status_code,
+                        }
                     )
                 return
 
@@ -257,7 +264,10 @@ def dedupe_feeds(feeds: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
         # Prefer active, then higher priority.
         existing = by_url[key]
-        score_existing = (1 if existing.get("is_active") else 0, int(existing.get("priority") or 0))
+        score_existing = (
+            1 if existing.get("is_active") else 0,
+            int(existing.get("priority") or 0),
+        )
         score_new = (1 if f.get("is_active") else 0, int(f.get("priority") or 0))
         if score_new > score_existing:
             by_url[key] = f
@@ -269,9 +279,15 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--feeds", default="data/feeds.json")
     parser.add_argument("--timeout", type=float, default=15.0)
-    parser.add_argument("--max", type=int, default=200, help="Max feeds to validate (active only)")
-    parser.add_argument("--disable-invalid", action="store_true", help="Disable invalid active feeds")
-    parser.add_argument("--skip-validate", action="store_true", help="Skip online validation")
+    parser.add_argument(
+        "--max", type=int, default=200, help="Max feeds to validate (active only)"
+    )
+    parser.add_argument(
+        "--disable-invalid", action="store_true", help="Disable invalid active feeds"
+    )
+    parser.add_argument(
+        "--skip-validate", action="store_true", help="Skip online validation"
+    )
     args = parser.parse_args()
 
     feeds_path = Path(args.feeds)
@@ -285,7 +301,14 @@ def main() -> int:
         f["url"] = _norm_url(str(f.get("url", "")))
         f["category"] = normalize_category(str(f.get("category", "other")))
         lang = str(f.get("language", "en")).strip().lower()
-        f["language"] = "ar" if lang.startswith("ar") else "en"
+        if lang.startswith("ar"):
+            f["language"] = "ar"
+        elif lang.startswith("en"):
+            f["language"] = "en"
+        elif re.match(r"^[a-z]{2}(-[a-z]{2})?$", lang):
+            f["language"] = lang.split("-", 1)[0]
+        else:
+            f["language"] = "en"
 
         name = str(f.get("name", "")).strip()
         fixed, changed = fix_text(name)

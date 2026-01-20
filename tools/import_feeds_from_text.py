@@ -49,7 +49,20 @@ def _guess_category(url: str, default_category: str) -> str:
     u = url.lower()
     if any(k in u for k in ["ai", "ml", "machinelearning", "artificialintelligence"]):
         return "ai"
-    if any(k in u for k in ["dev", "program", "python", "javascript", "node", "react", "css", "docker", "kubernetes"]):
+    if any(
+        k in u
+        for k in [
+            "dev",
+            "program",
+            "python",
+            "javascript",
+            "node",
+            "react",
+            "css",
+            "docker",
+            "kubernetes",
+        ]
+    ):
         return "programming"
     if any(k in u for k in ["startup", "business", "saas", "marketing"]):
         return "business"
@@ -63,7 +76,9 @@ def _load_json(path: Path) -> List[Dict[str, Any]]:
 
 
 def _save_json(path: Path, data: List[Dict[str, Any]]) -> None:
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def _read_urls(input_path: Path) -> List[FeedInput]:
@@ -87,14 +102,29 @@ def _read_urls(input_path: Path) -> List[FeedInput]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True, help="Text file with one RSS URL per line")
+    parser.add_argument(
+        "--input", required=True, help="Text file with one RSS URL per line"
+    )
     parser.add_argument("--feeds", default="data/feeds.json", help="Path to feeds.json")
-    parser.add_argument("--language", choices=["ar", "en"], default="ar")
-    parser.add_argument("--category", default="tech", help="Default category when not inferred")
+    parser.add_argument(
+        "--language",
+        default="ar",
+        help="Primary language code (e.g., ar, en, zh, ru, ja)",
+    )
+    parser.add_argument(
+        "--category", default="tech", help="Default category when not inferred"
+    )
     parser.add_argument("--priority", type=int, default=5)
-    parser.add_argument("--active", action="store_true", help="Mark imported feeds as active")
+    parser.add_argument(
+        "--active", action="store_true", help="Mark imported feeds as active"
+    )
 
     args = parser.parse_args()
+
+    args.language = str(args.language).strip().lower()
+    if not re.match(r"^[a-z]{2}(-[a-z]{2})?$", args.language):
+        print(f"Invalid --language: {args.language}", file=sys.stderr)
+        return 2
 
     input_path = Path(args.input)
     feeds_path = Path(args.feeds)
