@@ -32,6 +32,23 @@ from core.models import FetchedArticle
 logger = logging.getLogger(__name__)
 
 
+_CJK_RE = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
+_CYRILLIC_RE = re.compile(r"[\u0400-\u04ff]")
+
+
+def _has_cjk(text: str) -> bool:
+    return bool(text and _CJK_RE.search(text))
+
+
+def _has_cyrillic(text: str) -> bool:
+    return bool(text and _CYRILLIC_RE.search(text))
+
+
+def _enforce_no_cjk_cyrillic(text: str) -> bool:
+    """Return True if text contains unwanted scripts (CJK/Cyrillic)."""
+    return _has_cjk(text) or _has_cyrillic(text)
+
+
 @dataclass
 class GeneratedContent:
     """Container for generated content"""
@@ -172,7 +189,9 @@ class LLMClient:
 صوت البراند: {prompts.brand_voice}
 
 قواعد مهمة:
-1. اكتب المقال بالعربية الفصحى السليمة
+    1. اكتب المقال بالعربية الفصحى السليمة فقط.
+    2. لو كان المصدر بأي لغة أخرى (إنجليزي/صيني/روسي/ياباني...) ترجم المعنى للعربية ولا تترك أي أحرف من لغة المصدر.
+    3. ممنوع استخدام أي أحرف صينية/يابانية/روسية داخل النص.
 2. استخدم HTML للتنسيق (h2, h3, p, ul, ol, strong, em)
 3. لا تستخدم كلمات مثل "في هذا المقال" أو "سنتعرف على"
 4. ابدأ بمقدمة جذابة تثير الفضول
@@ -213,6 +232,18 @@ class LLMClient:
 أعطني المقال كاملاً بتنسيق HTML فقط."""
 
         content = await self._generate(user_prompt, system_prompt, temperature=0.7)
+
+        # Hard guard: never publish non-Arabic scripts in Arabic content.
+        if _enforce_no_cjk_cyrillic(content):
+            content = await self._generate(
+                user_prompt
+                + "\n\nتأكيد نهائي: اكتب بالعربية فقط بدون أي أحرف صينية/يابانية/روسية.",
+                system_prompt=system_prompt,
+                temperature=0.6,
+            )
+
+        if _enforce_no_cjk_cyrillic(content):
+            raise ValueError("LLM produced disallowed scripts (CJK/Cyrillic) for Arabic article")
 
         # Extract title from generated content
         title = self._extract_title(content, article.title)
@@ -256,10 +287,12 @@ class LLMClient:
         prompts = self.config.app_config.prompts
 
         system_prompt = f"""You are a senior technical writer for "{prompts.brand_name}".
-Brand voice: {prompts.brand_voice}
+    Brand voice: {prompts.brand_voice}
 
 Guidelines:
-1. Write in clear, professional English
+    1. Write in clear, professional English ONLY.
+    2. If the source is not English (Arabic/Chinese/Russian/Japanese/etc.), translate it to English first and write the article in English.
+    3. Do NOT output Chinese/Japanese/Russian characters.
 2. Use Markdown formatting (##, ###, `, ```, -, etc.)
 3. Include code examples where relevant
 4. Be practical and actionable
@@ -303,6 +336,15 @@ Summary and call to action...
 Provide the complete article in Markdown format."""
 
         content = await self._generate(user_prompt, system_prompt, temperature=0.6)
+
+        # Hard guard: dev.to must be English.
+        if _enforce_no_cjk_cyrillic(content):
+            content = await self._generate(
+                user_prompt
+                + "\n\nFINAL CHECK: Output must be English only. No CJK/Cyrillic characters.",
+                system_prompt=system_prompt,
+                temperature=0.5,
+            )
 
         # Extract title
         title = self._extract_markdown_title(content, article.title)
@@ -392,7 +434,12 @@ Answer:"""
 - استخدام إيموجي مناسبة (لكن بدون إفراط)
 - لغة حوارية وودودة
 - نقاط مختصرة ومفيدة
-- دعوة واضحة للقراءة"""
+    - دعوة واضحة للقراءة
+
+    قواعد صارمة:
+    1) اكتب بالعربية فقط.
+    2) ممنوع أي أحرف صينية/يابانية/روسية.
+    3) مسموح كلمات تقنية إنجليزي بسيطة عند الحاجة."""
 
         prompt_template = custom_prompt or prompts.telegram_post_prompt
 
@@ -422,6 +469,18 @@ Answer:"""
             user_prompt, system_prompt, temperature=0.8, max_tokens=500
         )
 
+        if _enforce_no_cjk_cyrillic(post):
+            post = await self._generate(
+                user_prompt
+                + "\n\nتأكيد نهائي: بالعربية فقط بدون أي أحرف صينية/يابانية/روسية.",
+                system_prompt=system_prompt,
+                temperature=0.7,
+                max_tokens=500,
+            )
+
+        if _enforce_no_cjk_cyrillic(post):
+            raise ValueError("LLM produced disallowed scripts (CJK/Cyrillic) for Telegram post")
+
         # Ensure links are included
         if blogger_url and blogger_url not in post:
             post += f"\n\n📖 {blogger_url}"
@@ -444,6 +503,7 @@ Answer:"""
 
 قواعد صارمة:
 1) اكتب بالعربي المصري فقط (ممنوع الإنجليزية).
+2) ممنوع أي أحرف صينية/يابانية/روسية.
 2) 2-4 جمل قصيرة.
 3) ممنوع الروابط.
 4) ممنوع تكرار عنوان المقال.
@@ -466,6 +526,17 @@ Answer:"""
         out = out.strip()
         # Defensive cleanup: strip any accidental URLs/English remnants.
         out = re.sub(r"https?://\S+", "", out).strip()
+        if _enforce_no_cjk_cyrillic(out):
+            out = await self._generate(
+                user_prompt
+                + "\n\nتأكيد نهائي: عربي مصري فقط بدون أي أحرف صينية/يابانية/روسية.",
+                system_prompt=system_prompt,
+                temperature=0.5,
+                max_tokens=220,
+            )
+            out = re.sub(r"https?://\S+", "", out).strip()
+        if _enforce_no_cjk_cyrillic(out):
+            return ""
         return out
 
     async def generate_egyptian_arabic_title(self, article: FetchedArticle) -> str:
@@ -482,6 +553,7 @@ Answer:"""
 2) 6-12 كلمة.
 3) ممنوع مبالغة أو Clickbait رخيص.
 4) ممنوع علامات اقتباس طويلة.
+5) ممنوع أي أحرف صينية/يابانية/روسية.
 """
 
         src = (article.summary or article.content or "").strip()
@@ -496,7 +568,10 @@ Answer:"""
         out = await self._generate(
             user_prompt, system_prompt=system_prompt, temperature=0.5, max_tokens=40
         )
-        return out.strip().splitlines()[0].strip()
+        first = out.strip().splitlines()[0].strip()
+        if _enforce_no_cjk_cyrillic(first):
+            first = "خبر تقني جديد"  # safe fallback
+        return first
 
     async def generate_distribution_drafts(
         self,

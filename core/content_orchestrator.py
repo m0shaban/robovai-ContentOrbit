@@ -386,13 +386,20 @@ class ContentOrchestrator:
             try:
                 title = await self.llm.generate_egyptian_arabic_title(article)
             except Exception:
-                title = article.title
+                title = ""
 
             # Generate an Egyptian Arabic summary (source might be English)
             try:
                 summary = await self.llm.generate_egyptian_arabic_summary(article)
             except Exception:
-                summary = (article.summary or article.content[:300] or "").strip()
+                summary = ""
+
+            # Never post raw source-language content.
+            if not title or not summary:
+                logger.warning(
+                    "Skipping Telegram post: failed to generate Arabic title/summary."
+                )
+                return None
 
             # Use CTA strategy for structured message
             post_text = self.cta.get_telegram_message(
@@ -437,12 +444,18 @@ class ContentOrchestrator:
             try:
                 title = await self.llm.generate_egyptian_arabic_title(article)
             except Exception:
-                title = article.title
+                title = ""
 
             try:
                 hook = await self.llm.generate_egyptian_arabic_summary(article, max_words=55)
             except Exception:
-                hook = article.summary[:200] if article.summary else article.content[:200]
+                hook = ""
+
+            if not title or not hook:
+                logger.warning(
+                    "Skipping Facebook post: failed to generate Arabic title/hook."
+                )
+                return None
 
             post_text = self.cta.get_facebook_post(
                 title=title,

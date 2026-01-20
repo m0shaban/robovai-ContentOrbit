@@ -502,6 +502,7 @@ async def build_app() -> (
 
 async def main():
     dp, bot, config, db, llm = await build_app()
+    acquired_lock = False
     try:
         # Best-effort: ensure we're in polling mode and clear any webhook.
         try:
@@ -522,6 +523,7 @@ async def main():
                 fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
                     f.write(str(datetime.utcnow().timestamp()))
+                acquired_lock = True
                 break
             except FileExistsError:
                 try:
@@ -538,9 +540,9 @@ async def main():
 
                 if datetime.utcnow().timestamp() - started_wait > max_wait_seconds:
                     logger.warning(
-                        "Telegram polling lock still held; continuing anyway (may conflict)."
+                        "Telegram polling lock still held; skipping polling to avoid conflicts."
                     )
-                    break
+                    return
 
                 await asyncio.sleep(3)
 
@@ -548,9 +550,10 @@ async def main():
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         try:
-            Path(os.getenv("TG_POLL_LOCK_PATH", "data/telegram_polling.lock")).unlink(
-                missing_ok=True
-            )
+            if acquired_lock:
+                Path(
+                    os.getenv("TG_POLL_LOCK_PATH", "data/telegram_polling.lock")
+                ).unlink(missing_ok=True)
         except Exception:
             pass
         try:

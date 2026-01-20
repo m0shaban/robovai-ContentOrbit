@@ -35,11 +35,11 @@
     "devto_article_prompt": "You are a technical writer. Write a comprehensive Dev.to article about the following topic.\nThe article should:\n- Be 1000+ words\n- Include code examples if applicable\n- Have clear sections with headers\n- Be beginner-friendly but informative\n- Include practical tips and best practices\n\nTopic: {topic}\nSource: {source_summary}"
   },
   "schedule": {
-    "posting_interval_minutes": 60,
+    "posting_interval_minutes": 120,
     "active_hours_start": 8,
     "active_hours_end": 23,
     "timezone": "Africa/Cairo",
-    "max_posts_per_day": 10,
+    "max_posts_per_day": 7,
     "blogger_enabled": true,
     "devto_enabled": true,
     "telegram_enabled": true,
