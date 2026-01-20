@@ -144,6 +144,16 @@ class ConfigManager:
             self._load_dotenv_if_present()
             self._hydrate_from_environment()
 
+            # Enforce a safe daily cap (business rule): 7 posts/day by default.
+            try:
+                env_cap = os.getenv("MAX_POSTS_PER_DAY")
+                cap = int(env_cap) if env_cap and str(env_cap).strip().isdigit() else 7
+                if getattr(self.app_config, "schedule", None) is not None:
+                    if self.app_config.schedule.max_posts_per_day > cap:
+                        self.app_config.schedule.max_posts_per_day = cap
+            except Exception:
+                pass
+
             self._is_loaded = True
             self._last_loaded = datetime.utcnow()
             return True

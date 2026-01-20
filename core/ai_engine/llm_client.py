@@ -460,11 +460,111 @@ Answer:"""
             f"اكتب ملخص مصري في حدود {max_words} كلمة."
         )
 
-        out = await self._generate(user_prompt, system_prompt=system_prompt, temperature=0.6, max_tokens=220)
+        out = await self._generate(
+            user_prompt, system_prompt=system_prompt, temperature=0.6, max_tokens=220
+        )
         out = out.strip()
         # Defensive cleanup: strip any accidental URLs/English remnants.
         out = re.sub(r"https?://\S+", "", out).strip()
         return out
+
+    async def generate_egyptian_arabic_title(self, article: FetchedArticle) -> str:
+        """Generate a short Egyptian Arabic title.
+
+        Allows English technical terms (e.g., CSS, LLM) when appropriate.
+        """
+        prompts = self.config.app_config.prompts
+
+        system_prompt = f"""أنت محرر عناوين مصري لـ "{prompts.brand_name}".
+
+قواعد:
+1) عنوان عربي مصري واضح (مسموح كلمات تقنية إنجليزي).
+2) 6-12 كلمة.
+3) ممنوع مبالغة أو Clickbait رخيص.
+4) ممنوع علامات اقتباس طويلة.
+"""
+
+        src = (article.summary or article.content or "").strip()
+        src = re.sub(r"\s+", " ", src)[:800]
+
+        user_prompt = (
+            f"العنوان الأصلي: {article.title}\n\n"
+            f"ملخص/سياق: {src}\n\n"
+            "اكتب عنوان واحد فقط بدون أي شرح." 
+        )
+
+        out = await self._generate(
+            user_prompt, system_prompt=system_prompt, temperature=0.5, max_tokens=40
+        )
+        return out.strip().splitlines()[0].strip()
+
+    async def generate_distribution_drafts(
+        self,
+        article: FetchedArticle,
+        blogger_url: Optional[str] = None,
+        devto_url: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """Generate post-publication drafts for other platforms.
+
+        Returns a dict of platform->draft text.
+        """
+        src = (article.summary or article.content or "").strip()
+        src = re.sub(r"\s+", " ", src)[:1400]
+        blog = blogger_url or "https://www.robovai.tech/"
+        dev = devto_url or ""
+
+        # LinkedIn (Arabic w/ English terms)
+        li_system = """You are a LinkedIn thought-leadership writer.
+Write in Arabic (Egyptian-professional) with occasional English technical terms.
+Structure:
+- Hook (1-2 lines)
+- 3-5 bullets of insight
+- What this means for builders/teams
+- CTA to read full article
+No hashtags spam (max 3).
+"""
+        li_user = (
+            f"Topic/title: {article.title}\n\n"
+            f"Source summary: {src}\n\n"
+            f"Link to full Arabic article: {blog}\n"
+            + (f"English version (Dev.to): {dev}\n" if dev else "")
+        )
+        linkedin = await self._generate(li_user, system_prompt=li_system, temperature=0.6, max_tokens=450)
+
+        # Short video script (TikTok/IG Reels/YT Shorts)
+        vid_system = """أنت كاتب سكريبت فيديوهات قصيرة (30-45 ثانية) بالمصري.
+اكتب بصيغة Script جاهز للتصوير.
+لازم يحتوي:
+0-3s Hook
+3-25s Body
+25-40s CTA
+مع [Visual cues] بسيطة.
+"""
+        vid_user = (
+            f"موضوع الفيديو: {article.title}\n\n"
+            f"ملخص: {src}\n\n"
+            f"اللينك: {blog}\n"
+        )
+        video = await self._generate(vid_user, system_prompt=vid_system, temperature=0.7, max_tokens=500)
+
+        # Reddit draft (English)
+        rd_system = """You write Reddit posts for r/technology / r/artificial / r/programming.
+Write in clear English. Add TL;DR. Avoid marketing tone.
+End with a question to invite discussion.
+Include the link only once.
+"""
+        rd_user = (
+            f"Title/topic: {article.title}\n\n"
+            f"Source summary: {src}\n\n"
+            f"Link: {blog}\n"
+        )
+        reddit = await self._generate(rd_user, system_prompt=rd_system, temperature=0.6, max_tokens=450)
+
+        return {
+            "LinkedIn": linkedin.strip(),
+            "Short Video Script": video.strip(),
+            "Reddit": reddit.strip(),
+        }
 
     # ═══════════════════════════════════════════════════════════════════════════
     # FACEBOOK POST GENERATION

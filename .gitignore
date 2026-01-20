@@ -72,6 +72,15 @@ tmp/
 temp/
 *.tmp
 
+# Feed import artifacts (local only)
+data/feeds_import/
+tools/tmp_docx_extract/
+tools/tmp_docx_extract.zip
+
+# User-provided source documents (local only)
+مصادر_أخبار_التكنولوجيا_والذكاء_الاصطناعي.docx
+مصادر_أخبار_التكنولوجيا_والذكاء_الاصطناعي.pdf
+
 # Test
 .pytest_cache/
 .coverage

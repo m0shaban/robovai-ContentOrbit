@@ -194,6 +194,8 @@ class ContentOrbitBot:
                 # Notify admins with a compact summary + links
                 try:
                     from core.publisher.telegram_publisher import TelegramPublisher
+                    from core.ai_engine.llm_client import LLMClient
+                    from pathlib import Path
 
                     tg = TelegramPublisher(self.config)
 
@@ -259,6 +261,56 @@ class ContentOrbitBot:
                         )
 
                     await tg.notify_admins(msg)
+
+                    # Generate drafts for other platforms (LinkedIn / Shorts / Reddit)
+                    if result.success and result.article:
+                        try:
+                            llm = LLMClient(self.config)
+                            drafts = await llm.generate_distribution_drafts(
+                                result.article,
+                                blogger_url=result.blogger_url,
+                                devto_url=result.devto_url,
+                            )
+
+                            out = [
+                                f"Title: {result.article.title}",
+                                f"Blogger: {result.blogger_url or 'https://www.robovai.tech/'}",
+                                f"Dev.to: {result.devto_url or '-'}",
+                                "",
+                            ]
+                            for k, v in drafts.items():
+                                out.append("=" * 60)
+                                out.append(k)
+                                out.append("=" * 60)
+                                out.append(v)
+                                out.append("")
+
+                            drafts_text = "\n".join(out).strip() + "\n"
+                            drafts_bytes = drafts_text.encode("utf-8")
+
+                            # Save to disk (persistent on Render)
+                            try:
+                                drafts_dir = Path("data") / "drafts"
+                                drafts_dir.mkdir(parents=True, exist_ok=True)
+                                ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+                                file_path = drafts_dir / f"drafts_{ts}.txt"
+                                file_path.write_bytes(drafts_bytes)
+                            except Exception:
+                                file_path = None
+
+                            caption = "🧾 <b>Drafts جاهزة</b> (LinkedIn / Shorts / Reddit)"
+                            if file_path:
+                                caption += f"\n\n📁 Saved: <code>{_esc(str(file_path))}</code>"
+
+                            await tg.notify_admins_document(
+                                caption=caption,
+                                document_bytes=drafts_bytes,
+                                filename="drafts.txt",
+                            )
+                            await llm.close()
+                        except Exception as _e2:
+                            logger.warning(f"Draft generation failed: {_e2}")
+
                     await tg.close()
                 except Exception as _e:
                     logger.warning(f"Admin notify failed: {_e}")

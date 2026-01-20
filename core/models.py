@@ -381,7 +381,7 @@ class ScheduleConfig(BaseModel):
     """Scheduling configuration"""
 
     posting_interval_minutes: int = Field(
-        default=60, ge=5, le=1440, description="Minutes between posts"
+        default=120, ge=5, le=1440, description="Minutes between posts"
     )
     active_hours_start: int = Field(
         default=8, ge=0, le=23, description="Start hour (24h)"
@@ -389,7 +389,7 @@ class ScheduleConfig(BaseModel):
     active_hours_end: int = Field(default=23, ge=0, le=23, description="End hour (24h)")
     timezone: str = Field(default="Africa/Cairo", description="Timezone")
     max_posts_per_day: int = Field(
-        default=10, ge=1, le=50, description="Maximum posts per day"
+        default=7, ge=1, le=50, description="Maximum posts per day"
     )
 
     # Platform-specific intervals

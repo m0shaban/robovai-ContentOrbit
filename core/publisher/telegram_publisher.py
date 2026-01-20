@@ -167,13 +167,21 @@ class TelegramPublisher:
                 if photo.startswith(("http://", "https://")):
                     # More reliable than URLInputFile (Telegram fetching remote URLs can fail).
                     try:
-                        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                            r = await client.get(photo, headers={"User-Agent": "Mozilla/5.0"})
+                        async with httpx.AsyncClient(
+                            timeout=30.0, follow_redirects=True
+                        ) as client:
+                            r = await client.get(
+                                photo, headers={"User-Agent": "Mozilla/5.0"}
+                            )
                             r.raise_for_status()
                             content_type = (r.headers.get("content-type") or "").lower()
                             if "image" not in content_type:
-                                raise ValueError(f"Non-image content-type: {content_type}")
-                            photo_input = BufferedInputFile(r.content, filename="image.jpg")
+                                raise ValueError(
+                                    f"Non-image content-type: {content_type}"
+                                )
+                            photo_input = BufferedInputFile(
+                                r.content, filename="image.jpg"
+                            )
                     except Exception:
                         photo_input = URLInputFile(photo)
                 else:
@@ -447,6 +455,23 @@ class TelegramPublisher:
                 )
             except Exception as e:
                 logger.error(f"Failed to notify admin {admin_id}: {e}")
+
+    async def notify_admins_document(
+        self, caption: str, document_bytes: bytes, filename: str = "drafts.txt"
+    ) -> None:
+        """Send a document to all admins (useful for long drafts)."""
+        bot = self._get_bot()
+        doc = BufferedInputFile(document_bytes, filename=filename)
+        for admin_id in self.telegram_config.admin_user_ids:
+            try:
+                await bot.send_document(
+                    chat_id=admin_id,
+                    document=doc,
+                    caption=caption[:1024],
+                    parse_mode=ParseMode.HTML,
+                )
+            except Exception as e:
+                logger.error(f"Failed to send document to admin {admin_id}: {e}")
 
     async def send_error_alert(self, error: str, component: str = "system") -> None:
         """

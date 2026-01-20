@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+    <head>
+        <title>The Ultimate Tech &amp; Economy Intelligence System</title>
+    </head>
+    <body>
+        <outline text="M1 Egypt &amp; MENA Market" title="M1 Egypt &amp; MENA Market">
+            <outline type="rss" text="Al Mal News (Tech &amp; Econ)" title="Al Mal News" xmlUrl="https://almalnews.com/category/technology/feed" htmlUrl="https://almalnews.com"/>
+            <outline type="rss" text="Arab Hardware (News)" title="Arab Hardware" xmlUrl="https://arabhardware.net/news/feed" htmlUrl="https://arabhardware.net"/>
+            <outline type="rss" text="AIT News (البوابة العربية)" title="AIT News" xmlUrl="https://aitnews.com/feed" htmlUrl="https://aitnews.com"/>
+            <outline type="rss" text="Wamda (Startups)" title="Wamda" xmlUrl="https://www.wamda.com/feed/xml" htmlUrl="https://www.wamda.com"/>
+            <outline type="rss" text="Egyptian Streets (Business)" title="Egyptian Streets" xmlUrl="https://egyptianstreets.com/category/business-technology/feed" htmlUrl="https://egyptianstreets.com"/>
+            <outline type="rss" text="The Egyptian Gazette" title="Egyptian Gazette" xmlUrl="https://egyptian-gazette.com/technology/feed" htmlUrl="https://egyptian-gazette.com"/>
+            <outline type="rss" text="Raqami TV" title="Raqami TV" xmlUrl="https://raqamitv.com/feed" htmlUrl="https://raqamitv.com"/>
+        </outline>
+
+        <outline text="M2 Global Tech &amp; Economy" title="M2 Global Tech &amp; Economy">
+            <outline type="rss" text="TechCrunch" title="TechCrunch" xmlUrl="https://techcrunch.com/feed" htmlUrl="https://techcrunch.com"/>
+            <outline type="rss" text="Financial Times (Tech)" title="FT Tech" xmlUrl="https://ft.com/technology?format=rss" htmlUrl="https://www.ft.com"/>
+            <outline type="rss" text="Bloomberg Technology" title="Bloomberg" xmlUrl="https://feeds.bloomberg.com/technology/news.rss" htmlUrl="https://www.bloomberg.com"/>
+            <outline type="rss" text="CNBC Technology" title="CNBC" xmlUrl="https://cnbc.com/id/19854910/device/rss/rss.html" htmlUrl="https://www.cnbc.com"/>
+            <outline type="rss" text="The Verge" title="The Verge" xmlUrl="https://www.theverge.com/rss/index.xml" htmlUrl="https://www.theverge.com"/>
+            <outline type="rss" text="Wired Business" title="Wired Business" xmlUrl="https://www.wired.com/feed/category/business/latest/rss" htmlUrl="https://www.wired.com"/>
+        </outline>
+
+        <outline text="M3 AI Research &amp; Labs" title="M3 AI Research &amp; Labs">
+            <outline type="rss" text="OpenAI Blog" title="OpenAI" xmlUrl="https://openai.com/feed" htmlUrl="https://openai.com"/>
+            <outline type="rss" text="Google DeepMind" title="DeepMind" xmlUrl="https://deepmind.google/blog/rss.xml" htmlUrl="https://deepmind.google/blog"/>
+            <outline type="rss" text="MIT Technology Review (AI)" title="MIT Tech Review" xmlUrl="https://technologyreview.com/topic/artificial-intelligence/feed" htmlUrl="https://www.technologyreview.com"/>
+            <outline type="rss" text="Berkeley AI Research (BAIR)" title="BAIR" xmlUrl="https://bair.berkeley.edu/blog/feed.xml" htmlUrl="https://bair.berkeley.edu/blog"/>
+            <outline type="rss" text="NVIDIA Blog" title="NVIDIA" xmlUrl="https://blogs.nvidia.com/feed/" htmlUrl="https://blogs.nvidia.com"/>
+            <outline type="rss" text="Microsoft AI Blog" title="Microsoft AI" xmlUrl="https://blogs.microsoft.com/ai/feed/" htmlUrl="https://blogs.microsoft.com/ai"/>
+        </outline>
+
+        <outline text="M4 Industry 4.0 &amp; 5.0" title="M4 Industry 4.0 &amp; 5.0">
+            <outline type="rss" text="WEF (4th Ind. Revolution)" title="WEF 4IR" xmlUrl="https://weforum.org/agenda/archive/fourth-industrial-revolution/feed" htmlUrl="https://www.weforum.org"/>
+            <outline type="rss" text="McKinsey Insights" title="McKinsey" xmlUrl="https://mckinsey.com/insights/rss" htmlUrl="https://www.mckinsey.com"/>
+            <outline type="rss" text="Industry 4.0 Magazine" title="Industry 4.0 Mag" xmlUrl="https://industry4o.com/feed" htmlUrl="https://industry4o.com"/>
+            <outline type="rss" text="Automation World" title="Automation World" xmlUrl="https://www.automationworld.com/rss" htmlUrl="https://www.automationworld.com"/>
+            <outline type="rss" text="GreenBiz (Sustainability)" title="GreenBiz" xmlUrl="https://www.greenbiz.com/rss.xml" htmlUrl="https://www.greenbiz.com"/>
+            <outline type="rss" text="CleanTechnica" title="CleanTechnica" xmlUrl="https://cleantechnica.com/feed/" htmlUrl="https://cleantechnica.com"/>
+        </outline>
+
+        <outline text="M5 Cybersecurity &amp; Data" title="M5 Cybersecurity &amp; Data">
+            <outline type="rss" text="Krebs on Security" title="Krebs on Security" xmlUrl="https://krebsonsecurity.com/feed/" htmlUrl="https://krebsonsecurity.com"/>
+            <outline type="rss" text="The Hacker News" title="The Hacker News" xmlUrl="https://feeds.feedburner.com/TheHackersNews" htmlUrl="https://thehackernews.com"/>
+            <outline type="rss" text="Dark Reading" title="Dark Reading" xmlUrl="https://www.darkreading.com/rss.xml" htmlUrl="https://www.darkreading.com"/>
+            <outline type="rss" text="KDnuggets (Data Science)" title="KDnuggets" xmlUrl="https://www.kdnuggets.com/feed" htmlUrl="https://www.kdnuggets.com"/>
+            <outline type="rss" text="Hacker News" title="Hacker News" xmlUrl="https://news.ycombinator.com/rss" htmlUrl="https://news.ycombinator.com"/>
+        </outline>
+
+        <outline text="M6 Productivity &amp; Tools" title="M6 Productivity &amp; Tools">
+            <outline type="rss" text="Product Hunt (Daily Best)" title="Product Hunt" xmlUrl="https://producthunt.com/feed" htmlUrl="https://www.producthunt.com"/>
+            <outline type="rss" text="Zapier Automation" title="Zapier" xmlUrl="https://zapier.com/blog/feed" htmlUrl="https://zapier.com"/>
+            <outline type="rss" text="MarkTechPost (AI Tools)" title="MarkTechPost" xmlUrl="https://www.marktechpost.com/feed/" htmlUrl="https://www.marktechpost.com"/>
+            <outline type="rss" text="BetaList (Startups)" title="BetaList" xmlUrl="https://betalist.com/feed" htmlUrl="https://betalist.com"/>
+            <outline type="rss" text="Todoist Blog" title="Todoist" xmlUrl="https://blog.doist.com/feed/" htmlUrl="https://blog.doist.com"/>
+            <outline type="rss" text="Lifehacker" title="Lifehacker" xmlUrl="https://lifehacker.com/rss" htmlUrl="https://lifehacker.com"/>
+        </outline>
+
+        <outline text="M7 Management &amp; Mindset" title="M7 Management &amp; Mindset">
+            <outline type="rss" text="Harvard Business Review" title="HBR" xmlUrl="http://feeds.harvardbusiness.org/harvardbusiness" htmlUrl="https://hbr.org"/>
+            <outline type="rss" text="First Round Review" title="First Round" xmlUrl="https://review.firstround.com/feed.xml" htmlUrl="https://review.firstround.com"/>
+            <outline type="rss" text="Cal Newport (Deep Work)" title="Cal Newport" xmlUrl="https://calnewport.com/feed/" htmlUrl="https://calnewport.com"/>
+            <outline type="rss" text="James Clear (Atomic Habits)" title="James Clear" xmlUrl="https://jamesclear.com/feed" htmlUrl="https://jamesclear.com"/>
+            <outline type="rss" text="Paul Graham Essays" title="Paul Graham" xmlUrl="http://www.aaronsw.com/2002/feeds/pgessays.rss" htmlUrl="http://www.paulgraham.com"/>
+        </outline>
+
+        <outline text="M8 Hardware &amp; IoT" title="M8 Hardware &amp; IoT">
+            <outline type="rss" text="Ars Technica" title="Ars Technica" xmlUrl="https://arstechnica.com/feed/" htmlUrl="https://arstechnica.com"/>
+            <outline type="rss" text="IoT For All" title="IoT For All" xmlUrl="https://www.iotforall.com/feed" htmlUrl="https://www.iotforall.com"/>
+            <outline type="rss" text="Hackaday" title="Hackaday" xmlUrl="https://hackaday.com/blog/feed/" htmlUrl="https://hackaday.com"/>
+        </outline>
+    </body>
+</opml>

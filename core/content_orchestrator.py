@@ -382,7 +382,12 @@ class ContentOrchestrator:
     ) -> Optional[int]:
         """Generate and publish to Telegram with smart CTA"""
         try:
-            # 🎯 Use CTA Strategy for Telegram (Hub - All Links)
+            # 🎯 Telegram must be Arabic (Egyptian). Allow English technical terms.
+            try:
+                title = await self.llm.generate_egyptian_arabic_title(article)
+            except Exception:
+                title = article.title
+
             # Generate an Egyptian Arabic summary (source might be English)
             try:
                 summary = await self.llm.generate_egyptian_arabic_summary(article)
@@ -391,7 +396,7 @@ class ContentOrchestrator:
 
             # Use CTA strategy for structured message
             post_text = self.cta.get_telegram_message(
-                title=article.title,
+                title=title,
                 summary=summary,
                 blogger_url=blogger_url,
                 devto_url=devto_url,
@@ -429,11 +434,19 @@ class ContentOrchestrator:
         """Generate and publish to Facebook with smart CTA"""
         try:
             # 🎯 Use CTA Strategy for Facebook (drives to Blogger)
-            hook = article.summary[:200] if article.summary else article.content[:200]
+            try:
+                title = await self.llm.generate_egyptian_arabic_title(article)
+            except Exception:
+                title = article.title
+
+            try:
+                hook = await self.llm.generate_egyptian_arabic_summary(article, max_words=55)
+            except Exception:
+                hook = article.summary[:200] if article.summary else article.content[:200]
 
             post_text = self.cta.get_facebook_post(
-                title=article.title,
-                hook=hook + "...",
+                title=title,
+                hook=(hook or "") + "...",
                 blogger_url=article_url,
                 emoji="🔥",
             )
@@ -486,9 +499,16 @@ class ContentOrchestrator:
 
             # Validate external images; if inaccessible, fallback to generated.
             try:
-                async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-                    r = await client.head(existing, headers={"User-Agent": "Mozilla/5.0"})
-                    if r.status_code < 400 and "image" in (r.headers.get("content-type") or "").lower():
+                async with httpx.AsyncClient(
+                    timeout=10.0, follow_redirects=True
+                ) as client:
+                    r = await client.head(
+                        existing, headers={"User-Agent": "Mozilla/5.0"}
+                    )
+                    if (
+                        r.status_code < 400
+                        and "image" in (r.headers.get("content-type") or "").lower()
+                    ):
                         return existing
             except Exception:
                 pass
