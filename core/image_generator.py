@@ -251,7 +251,9 @@ class ImageGenerator:
         return resized.crop((left, top, left + target_w, top + target_h))
 
     def _list_local_background_paths(self) -> List[str]:
-        base_dir = (os.getenv("LOCAL_BACKGROUNDS_DIR") or "assets/backgrounds").strip() or "assets/backgrounds"
+        base_dir = (
+            os.getenv("LOCAL_BACKGROUNDS_DIR") or "assets/backgrounds"
+        ).strip() or "assets/backgrounds"
         if not os.path.isabs(base_dir):
             base_dir = os.path.join(os.getcwd(), base_dir)
         if not os.path.isdir(base_dir):
@@ -1271,7 +1273,11 @@ class ImageGenerator:
         processed_text = self._process_arabic_text(text)
 
         draw = ImageDraw.Draw(image)
-        emoji_font = None if PILMOJI_AVAILABLE else self._get_emoji_font(getattr(font, "size", 24))
+        emoji_font = (
+            None
+            if PILMOJI_AVAILABLE
+            else self._get_emoji_font(getattr(font, "size", 24))
+        )
 
         def draw_runs(at_x: int, at_y: int, fill: Tuple[int, int, int]):
             if PILMOJI_AVAILABLE:

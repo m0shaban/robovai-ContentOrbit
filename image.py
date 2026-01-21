@@ -6,7 +6,7 @@ from core.image_generator import ImageGenerator
 def main() -> int:
     # Use local backgrounds (the images you placed in ./output).
     os.environ.setdefault("LOCAL_BACKGROUNDS_ENABLED", "1")
-    os.environ.setdefault("LOCAL_BACKGROUNDS_DIR", "output")
+    os.environ.setdefault("LOCAL_BACKGROUNDS_DIR", "assets/backgrounds")
     os.environ.setdefault("LOCAL_BACKGROUNDS_STRATEGY", "topic")
 
     generator = ImageGenerator()

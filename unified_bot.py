@@ -68,7 +68,7 @@ async def main():
 
     # Telegram polling commonly conflicts during deploys/scaling. Posting to channels
     # does NOT require polling, so keep chatbot optional.
-    chatbot_enabled = os.getenv("ENABLE_TELEGRAM_CHATBOT", "0").strip().lower() in (
+    chatbot_enabled = os.getenv("ENABLE_TELEGRAM_CHATBOT", "1").strip().lower() in (
         "1",
         "true",
         "yes",

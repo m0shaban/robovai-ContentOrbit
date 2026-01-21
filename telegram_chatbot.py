@@ -63,11 +63,13 @@ def main_menu_kb(is_admin_user: bool):
     kb.button(text="🧠 اسأل سؤال تقني", callback_data="menu:ask")
     kb.button(text="💼 خدمات RoboVAI", callback_data="menu:business")
     kb.button(text="🔗 روابطنا", callback_data="menu:links")
+    kb.button(text="📌 اختصارات", callback_data="menu:shortcuts")
     if is_admin_user:
         kb.button(text="🚀 نفّذ النشر الآن", callback_data="menu:run_pipeline")
         kb.button(text="⚙️ إعدادات البوت", callback_data="menu:settings")
         kb.button(text="📝 تعديل البرومبت", callback_data="menu:prompts")
         kb.button(text="👥 إعدادات الجروبات", callback_data="menu:groups")
+        kb.button(text="🛰️ حالة النظام", callback_data="menu:status")
     kb.adjust(2)
     return kb.as_markup()
 
@@ -131,9 +133,83 @@ def business_text() -> str:
     )
 
 
+def shortcuts_text(is_admin_user: bool) -> str:
+    base = (
+        "📌 <b>اختصارات سريعة</b>\n\n"
+        "<b>أساسي</b>\n"
+        "• /start أو /menu — القائمة الرئيسية\n"
+        "• /ask سؤال — اسأل سؤال تقني\n"
+        "• /links — روابطنا\n"
+        "• /business — خدمات RoboVAI\n"
+        "• /shortcuts — هذه القائمة\n"
+        "• /status — حالة سريعة\n\n"
+        "<b>داخل الجروبات</b>\n"
+        "• /group_on — تفعيل البوت في الجروب\n"
+        "• /group_off — إيقاف البوت في الجروب\n"
+        "• /auto_on — تفعيل الرد التلقائي\n"
+        "• /auto_off — إيقاف الرد التلقائي\n"
+        "• /cta_on — تفعيل CTA\n"
+        "• /cta_off — إيقاف CTA\n"
+    )
+
+    if not is_admin_user:
+        return base
+
+    admin = (
+        "\n<b>Admin</b>\n"
+        "• /set_daily_limit رقم — تحديد الحد اليومي المجاني\n"
+        "• من القائمة: (🚀 نفّذ النشر الآن) لتشغيل البايبلاين\n"
+        "• من القائمة: (📝 تعديل البرومبت) لتعديل prompts\n"
+    )
+    return base + admin
+
+
+def status_text(config: ConfigManager, db: DatabaseManager) -> str:
+    def yn(v: bool) -> str:
+        return "✅" if v else "❌"
+
+    tg_ok = config.is_configured("telegram")
+    groq_ok = config.is_configured("groq")
+    feeds_ok = len(config.get_active_feeds() or []) > 0
+
+    bg_dir = (
+        os.getenv("LOCAL_BACKGROUNDS_DIR") or "assets/backgrounds"
+    ).strip() or "assets/backgrounds"
+    try:
+        bg_count = len(
+            [
+                p
+                for p in Path(bg_dir).glob("*.*")
+                if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp")
+            ]
+        )
+    except Exception:
+        bg_count = 0
+
+    daily = db.get_setting("daily_free_questions", str(DEFAULT_DAILY_FREE_QUESTIONS))
+    contact = db.get_setting("contact_username", CONTACT_USERNAME)
+
+    return (
+        "🛰️ <b>System Status</b>\n\n"
+        f"Telegram configured: {yn(tg_ok)}\n"
+        f"Groq configured: {yn(groq_ok)}\n"
+        f"Feeds loaded: {yn(feeds_ok)}\n\n"
+        "🖼️ <b>Images</b>\n"
+        f"Local backgrounds: {os.getenv('LOCAL_BACKGROUNDS_ENABLED','1')} (dir: <code>{bg_dir}</code>, files: {bg_count})\n"
+        f"AI images enabled: {os.getenv('ENABLE_IMAGE_AI','0')}\n"
+        f"Watermark: {os.getenv('IMAGE_WATERMARK_ENABLED','1')} — <code>{(os.getenv('IMAGE_WATERMARK_TEXT') or '').strip()}</code>\n"
+        f"Auto emoji title: {os.getenv('AUTO_EMOJI_TITLE','1')}\n\n"
+        "🤖 <b>Chatbot</b>\n"
+        f"Daily free questions: <code>{daily}</code>\n"
+        f"Contact: <code>{contact}</code>\n"
+    )
+
+
 async def ensure_defaults(db: DatabaseManager):
     if db.get_setting("daily_free_questions") is None:
         db.set_setting("daily_free_questions", str(DEFAULT_DAILY_FREE_QUESTIONS))
+    if db.get_setting("contact_username") is None:
+        db.set_setting("contact_username", CONTACT_USERNAME)
 
 
 def today_key() -> str:
@@ -190,30 +266,64 @@ async def build_app() -> (
     db = DatabaseManager()
     await ensure_defaults(db)
 
+    if (
+        config.app_config.telegram is None
+        or not (config.app_config.telegram.bot_token or "").strip()
+    ):
+        raise RuntimeError(
+            "Telegram bot token missing. Set TELEGRAM_TOKEN (or TELEGRAM_BOT_TOKEN) in Render env vars."
+        )
+
     bot = Bot(token=config.app_config.telegram.bot_token)
     dp = Dispatcher()
     router = Router()
 
     llm = LLMClient(config)
 
-    # /start
+    # /start and menu
     @router.message(CommandStart())
     async def start_cmd(message: Message, state: FSMContext):
         await state.clear()
         admin = is_admin(config, message.from_user.id)
         await message.answer(
-            "أهلاً! أنا RoboVAI Bot. اختر اللي تحبه من القائمة:",
+            (
+                "👋 <b>أهلاً!</b>\n"
+                "أنا <b>RoboVAI</b> — مساعدك للسؤال التقني + إدارة البايبلاين.\n\n"
+                "اختر من القائمة تحت 👇"
+            ),
             reply_markup=main_menu_kb(admin),
+            parse_mode=ParseMode.HTML,
         )
+
+    @router.message(Command("menu"))
+    async def menu_cmd(message: Message, state: FSMContext):
+        await start_cmd(message, state)
 
     @router.message(Command("help"))
     async def help_cmd(message: Message):
+        admin = is_admin(config, message.from_user.id)
         await message.answer(
-            "أوامر سريعة:\n"
-            "/start - القائمة الرئيسية\n"
-            "/ask <سؤال> - سؤال تقني\n"
-            "/links - روابطنا\n"
-            "/business - خدماتنا\n"
+            shortcuts_text(admin),
+            parse_mode=ParseMode.HTML,
+            reply_markup=main_menu_kb(admin),
+        )
+
+    @router.message(Command("shortcuts"))
+    async def shortcuts_cmd(message: Message):
+        admin = is_admin(config, message.from_user.id)
+        await message.answer(
+            shortcuts_text(admin),
+            parse_mode=ParseMode.HTML,
+            reply_markup=main_menu_kb(admin),
+        )
+
+    @router.message(Command("status"))
+    async def status_cmd(message: Message):
+        admin = is_admin(config, message.from_user.id)
+        await message.answer(
+            status_text(config, db),
+            parse_mode=ParseMode.HTML,
+            reply_markup=main_menu_kb(admin),
         )
 
     @router.message(Command("links"))
@@ -238,6 +348,27 @@ async def build_app() -> (
         if action == "business":
             await call.message.edit_text(
                 business_text(), reply_markup=main_menu_kb(admin)
+            )
+            await call.answer()
+            return
+
+        if action == "shortcuts":
+            await call.message.edit_text(
+                shortcuts_text(admin),
+                reply_markup=main_menu_kb(admin),
+                parse_mode=ParseMode.HTML,
+            )
+            await call.answer()
+            return
+
+        if action == "status":
+            if not admin:
+                await call.answer("غير مسموح", show_alert=True)
+                return
+            await call.message.edit_text(
+                status_text(config, db),
+                reply_markup=main_menu_kb(admin),
+                parse_mode=ParseMode.HTML,
             )
             await call.answer()
             return
@@ -511,7 +642,7 @@ async def main():
             pass
 
         # Avoid TelegramConflictError during deploy overlap by using a simple lock.
-        lock_path = Path(os.getenv("TG_POLL_LOCK_PATH", "data/telegram_polling.lock"))
+        lock_path = Path(os.getenv("TG_POLL_LOCK_PATH", "/tmp/telegram_polling.lock"))
         stale_seconds = int(os.getenv("TG_POLL_LOCK_STALE_SECONDS", "600"))
         max_wait_seconds = int(os.getenv("TG_POLL_LOCK_MAX_WAIT_SECONDS", "120"))
         started_wait = datetime.utcnow().timestamp()
@@ -552,7 +683,7 @@ async def main():
         try:
             if acquired_lock:
                 Path(
-                    os.getenv("TG_POLL_LOCK_PATH", "data/telegram_polling.lock")
+                    os.getenv("TG_POLL_LOCK_PATH", "/tmp/telegram_polling.lock")
                 ).unlink(missing_ok=True)
         except Exception:
             pass
