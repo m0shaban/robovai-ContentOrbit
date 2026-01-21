@@ -1,20 +1,21 @@
 # ════════════════════════════════════════════════════════════════════════════════
-# ContentOrbit Enterprise - Render.com Configuration
+# ContentOrbit - Render.com Free Tier Configuration (Unified Bot)
 # ════════════════════════════════════════════════════════════════════════════════
-# Deploy to Render.com with one click
+# This config runs the unified bot (main_bot + chatbot) as a single web service
+# to maximize uptime on Render's free tier.
 
 services:
   # ════════════════════════════════════════════════════════════════════════════════
-  # Dashboard Web Service
+  # Unified Bot Web Service (main_bot + telegram_chatbot)
   # ════════════════════════════════════════════════════════════════════════════════
   - type: web
-    name: contentorbit-dashboard
+    name: contentorbit-unified-bot
     runtime: python
-    region: oregon # or: ohio, frankfurt, singapore
-    plan: starter # starter, standard, pro
+    region: oregon
+    plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run dashboard/main_dashboard.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
-    healthCheckPath: /_stcore/health
+    startCommand: python unified_bot.py
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -22,8 +23,6 @@ services:
         value: Africa/Cairo
       - key: LOG_LEVEL
         value: INFO
-      - key: DASHBOARD_PASSWORD
-        sync: false # Set in Render dashboard
       - key: GROQ_API_KEY
         sync: false
       - key: TELEGRAM_TOKEN
@@ -32,6 +31,14 @@ services:
         sync: false
       - key: ADMIN_USER_ID
         sync: false
+      - key: ENABLE_TELEGRAM_CHATBOT
+        value: '1'
+      - key: TG_POLL_LOCK_PATH
+        value: /tmp/telegram_polling.lock
+      - key: TG_POLL_LOCK_STALE_SECONDS
+        value: '600'
+      - key: TG_POLL_LOCK_MAX_WAIT_SECONDS
+        value: '120'
       - key: DEVTO_API_KEY
         sync: false
       - key: BLOGGER_BLOG_ID
@@ -77,170 +84,5 @@ services:
       mountPath: /app/data
       sizeGB: 1
 
-  # ════════════════════════════════════════════════════════════════════════════════
-  # Bot Background Worker
-  # ════════════════════════════════════════════════════════════════════════════════
-  - type: worker
-    name: contentorbit-bot
-    runtime: python
-    region: oregon
-    plan: starter
-    buildCommand: pip install -r requirements.txt
-    startCommand: python main_bot.py
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: TIMEZONE
-        value: Africa/Cairo
-      - key: LOG_LEVEL
-        value: INFO
-      - key: GROQ_API_KEY
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: GROQ_API_KEY
-      - key: TELEGRAM_TOKEN
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: TELEGRAM_TOKEN
-      - key: CHANNEL_ID
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: CHANNEL_ID
-      - key: ADMIN_USER_ID
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: ADMIN_USER_ID
-      - key: DEVTO_API_KEY
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: DEVTO_API_KEY
-      - key: BLOGGER_BLOG_ID
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: BLOGGER_BLOG_ID
-      - key: BLOGGER_CLIENT_ID
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: BLOGGER_CLIENT_ID
-      - key: BLOGGER_CLIENT_SECRET
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: BLOGGER_CLIENT_SECRET
-      - key: BLOGGER_REFRESH_TOKEN
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: BLOGGER_REFRESH_TOKEN
-      - key: FACEBOOK_PAGE_ID
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: FACEBOOK_PAGE_ID
-      - key: FACEBOOK_PAGE_ACCESS_TOKEN
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: FACEBOOK_PAGE_ACCESS_TOKEN
-      - key: IMGBB_API_KEY
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: IMGBB_API_KEY
-
-      # Image pipeline defaults (match dashboard)
-      - key: ENABLE_IMAGE_AI
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: ENABLE_IMAGE_AI
-      - key: LOCAL_BACKGROUNDS_ENABLED
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: LOCAL_BACKGROUNDS_ENABLED
-      - key: LOCAL_BACKGROUNDS_DIR
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: LOCAL_BACKGROUNDS_DIR
-      - key: LOCAL_BACKGROUNDS_STRATEGY
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: LOCAL_BACKGROUNDS_STRATEGY
-      - key: LOCAL_BACKGROUNDS_DIM
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: LOCAL_BACKGROUNDS_DIM
-      - key: LOCAL_BACKGROUNDS_BLUR
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: LOCAL_BACKGROUNDS_BLUR
-      - key: IMAGE_WATERMARK_ENABLED
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: IMAGE_WATERMARK_ENABLED
-      - key: IMAGE_WATERMARK_TEXT
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: IMAGE_WATERMARK_TEXT
-      - key: IMAGE_WATERMARK_OPACITY
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: IMAGE_WATERMARK_OPACITY
-      - key: IMAGE_WATERMARK_FONT_SIZE
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: IMAGE_WATERMARK_FONT_SIZE
-      - key: AUTO_EMOJI_TITLE
-        fromService:
-          type: web
-          name: contentorbit-dashboard
-          envVarKey: AUTO_EMOJI_TITLE
-    disk:
-      name: contentorbit-data
-      mountPath: /app/data
-      sizeGB: 1
-
-# ════════════════════════════════════════════════════════════════════════════════
-# Environment Groups (shared across services)
-# ════════════════════════════════════════════════════════════════════════════════
-envVarGroups:
-  - name: contentorbit-secrets
-    envVars:
-      - key: GROQ_API_KEY
-        sync: false
-      - key: TELEGRAM_TOKEN
-        sync: false
-      - key: CHANNEL_ID
-        sync: false
-      - key: ADMIN_USER_ID
-        sync: false
-      - key: BLOGGER_CLIENT_ID
-        sync: false
-      - key: BLOGGER_CLIENT_SECRET
-        sync: false
-      - key: BLOGGER_BLOG_ID
-        sync: false
-      - key: BLOGGER_REFRESH_TOKEN
-        sync: false
-      - key: DEVTO_API_KEY
-        sync: false
-      - key: FACEBOOK_PAGE_ID
-        sync: false
-      - key: FACEBOOK_PAGE_ACCESS_TOKEN
-        sync: false
+# Note: Dashboard should be deployed separately on Streamlit Community Cloud
+# See deploy/streamlit/README.md for instructions
