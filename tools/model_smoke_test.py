@@ -1,9 +1,7 @@
-import base64
-import io
-import json
 import os
 import re
 import sys
+import urllib.parse
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -92,13 +90,41 @@ async def groq_list_models(
         r.raise_for_status()
         data = r.json()
         models = [
-            m.get("id")
+            mid
             for m in data.get("data", [])
-            if isinstance(m, dict) and m.get("id")
+            if isinstance(m, dict)
+            for mid in [m.get("id")]
+            if isinstance(mid, str) and mid
         ]
         return True, models, "ok"
     except Exception as e:
         return False, [], str(e)
+
+
+def collect_env_models() -> List[str]:
+    """Collect Groq model IDs configured via env vars."""
+    models: List[str] = []
+    for k, v in os.environ.items():
+        if not k.startswith("GROQ_MODEL_"):
+            continue
+        vv = (v or "").strip()
+        if vv:
+            models.append(vv)
+    for k in ("GROQ_IMAGE_PROMPT_MODEL",):
+        vv = (os.getenv(k) or "").strip()
+        if vv:
+            models.append(vv)
+    return models
+
+
+def collect_user_requested_models() -> List[str]:
+    """Collect model IDs passed on the CLI: `python tools/model_smoke_test.py model1,model2`."""
+    out: List[str] = []
+    for arg in sys.argv[1:]:
+        if not arg:
+            continue
+        out.extend([x.strip() for x in arg.split(",") if x.strip()])
+    return out
 
 
 async def groq_chat_test(
@@ -189,214 +215,6 @@ async def groq_function_call_test(
         return TestResult("groq", model, "tool_call", False, None, str(e)[:200])
 
 
-async def nvidia_flux_test(api_keys: List[str], url: str) -> TestResult:
-    if not api_keys:
-        return TestResult(
-            "nvidia", "flux", "img2img", False, None, "no NVIDIA_API_KEY*"
-        )
-
-    # create tiny image
-    try:
-        from PIL import Image
-    except Exception:
-        return TestResult(
-            "nvidia", "flux", "img2img", False, None, "Pillow not installed"
-        )
-
-    # Many image models expect a minimum resolution; too-small inputs can cause
-    # generic "Inference error" responses. Use a reasonable default size.
-    size_raw = (os.getenv("NVIDIA_TEST_IMAGE_SIZE") or "1024").strip()
-    try:
-        size = int(size_raw)
-    except Exception:
-        size = 1024
-    size = max(256, min(size, 1536))
-
-    img = Image.new("RGB", (size, size), (240, 240, 240))
-    mask = Image.new("L", (size, size), 255)
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    b64_png = base64.b64encode(buf.getvalue()).decode("utf-8")
-    data_url = "data:image/png;base64," + b64_png
-
-    mbuf = io.BytesIO()
-    mask.save(mbuf, format="PNG")
-    b64_mask = base64.b64encode(mbuf.getvalue()).decode("utf-8")
-    mask_data_url = "data:image/png;base64," + b64_mask
-
-    prompt = "High quality cinematic abstract tech background, no text, no logos, no watermark"
-    neg = "text, words, letters, logo, watermark"
-
-    tuned_payload = {
-        "prompt": prompt,
-        "negative_prompt": neg,
-        "aspect_ratio": "match_input_image",
-        "steps": int(os.getenv("NVIDIA_IMAGE_STEPS", "10")),
-        "cfg_scale": float(os.getenv("NVIDIA_CFG_SCALE", "3.5")),
-        "seed": int(os.getenv("NVIDIA_IMAGE_SEED", "0")),
-    }
-
-    minimal_payload = {
-        "prompt": prompt,
-        "negative_prompt": neg,
-    }
-
-    # Try a small set of common request shapes; endpoints sometimes accept
-    # either a data URL or raw base64, and may name the field differently.
-    payload_variants = [
-        # Minimal
-        {**minimal_payload, "image": data_url},
-        {**minimal_payload, "image": b64_png},
-        {**minimal_payload, "input_image": data_url},
-        {**minimal_payload, "input_image": b64_png},
-        {**minimal_payload, "init_image": data_url},
-        {**minimal_payload, "init_image": b64_png},
-        # Minimal + mask (some edit endpoints require it)
-        {**minimal_payload, "image": data_url, "mask": mask_data_url},
-        {**minimal_payload, "image": data_url, "mask_image": mask_data_url},
-        {**minimal_payload, "input_image": data_url, "mask": mask_data_url},
-        {**minimal_payload, "input_image": data_url, "mask_image": mask_data_url},
-        # Tuned
-        {**tuned_payload, "image": data_url},
-        {**tuned_payload, "image": b64_png},
-        {**tuned_payload, "input_image": data_url},
-        {**tuned_payload, "input_image": b64_png},
-        {**tuned_payload, "init_image": data_url},
-        {**tuned_payload, "init_image": b64_png},
-        # Tuned + mask
-        {**tuned_payload, "image": data_url, "mask": mask_data_url},
-        {**tuned_payload, "image": data_url, "mask_image": mask_data_url},
-        {**tuned_payload, "input_image": data_url, "mask": mask_data_url},
-        {**tuned_payload, "input_image": data_url, "mask_image": mask_data_url},
-        # txt2img attempt (some endpoints ignore the image field)
-        {**minimal_payload},
-    ]
-
-    async with httpx.AsyncClient(timeout=90.0) as client:
-        last = ""
-        for k in api_keys:
-            try:
-                for idx, payload in enumerate(payload_variants, start=1):
-                    r = await client.post(
-                        url,
-                        headers={
-                            "Authorization": f"Bearer {k}",
-                            "Accept": "application/json",
-                            "Content-Type": "application/json",
-                        },
-                        json=payload,
-                    )
-
-                    if r.status_code in (401, 403, 429):
-                        last = f"HTTP {r.status_code}" + (
-                            f" {r.text[:200]}" if r.text else ""
-                        )
-                        break
-                    if 400 <= r.status_code < 600:
-                        last = (
-                            f"HTTP {r.status_code}"
-                            + (f" {r.text[:400]}" if r.text else "")
-                            + f" (variant {idx})"
-                        )
-                        continue
-
-                    r.raise_for_status()
-                    data = r.json()
-                    # Attempt to locate image field
-                    candidate = None
-                    if isinstance(data, dict):
-                        for key in ("image", "output", "result"):
-                            v = data.get(key)
-                            if isinstance(v, str) and v:
-                                candidate = v
-                                break
-                        if candidate is None:
-                            imgs = data.get("images")
-                            if isinstance(imgs, list) and imgs:
-                                v0 = imgs[0]
-                                if isinstance(v0, str):
-                                    candidate = v0
-                                elif isinstance(v0, dict):
-                                    candidate = (
-                                        v0.get("image")
-                                        or v0.get("base64")
-                                        or v0.get("b64_json")
-                                        or v0.get("data")
-                                    )
-                    if not candidate:
-                        last = f"no image in response (variant {idx})"
-                        continue
-                    return TestResult(
-                        "nvidia",
-                        "flux.1-kontext-dev",
-                        "img2img",
-                        True,
-                        r.status_code,
-                        f"ok (variant {idx})",
-                    )
-            except Exception as e:
-                last = str(e)[:200]
-                continue
-        return TestResult(
-            "nvidia", "flux.1-kontext-dev", "img2img", False, None, last or "failed"
-        )
-
-
-def collect_env_models() -> List[str]:
-    vals: List[str] = []
-    for k, v in os.environ.items():
-        if not k.startswith("GROQ_MODEL_"):
-            continue
-        vv = (v or "").strip()
-        if not vv:
-            continue
-        if _looks_like_key(vv):
-            continue
-        vals.append(vv)
-    # Add the defaults too
-    for k in (
-        "GROQ_MODEL_LONG",
-        "GROQ_MODEL_LONG_EN",
-        "GROQ_MODEL_SHORT",
-        "GROQ_MODEL_SHORT_EN",
-    ):
-        vv = (os.getenv(k) or "").strip()
-        if vv and not _looks_like_key(vv):
-            vals.append(vv)
-    # de-dupe
-    out: List[str] = []
-    seen = set()
-    for m in vals:
-        if m in seen:
-            continue
-        seen.add(m)
-        out.append(m)
-    return out
-
-
-def collect_user_requested_models() -> List[str]:
-    # Rough guesses for common Groq IDs (will be filtered against /models)
-    candidates = [
-        "gpt-oss-120b",
-        "gpt-oss-20b",
-        "qwen3-32b",
-        "qwen-3-32b",
-        "llama-4-scout",
-        "llama-4-maverick",
-        "kimi-k2",
-        "llama-3.3-70b",
-    ]
-    # De-dupe
-    out: List[str] = []
-    seen = set()
-    for c in candidates:
-        if c in seen:
-            continue
-        seen.add(c)
-        out.append(c)
-    return out
-
-
 def print_table(results: List[TestResult]) -> None:
     # Simple fixed-width output
     cols = ["provider", "model", "test", "ok", "status", "detail"]
@@ -425,12 +243,76 @@ def print_table(results: List[TestResult]) -> None:
         print(fmt(row))
 
 
+def _pollinations_build_url(
+    prompt: str,
+    width: int,
+    height: int,
+    model: str,
+    seed: str,
+) -> str:
+    q = urllib.parse.quote((prompt or "").strip() or "abstract tech background")
+    params: Dict[str, str] = {
+        "width": str(width),
+        "height": str(height),
+        "nologo": "true",
+    }
+    if model:
+        params["model"] = model
+    if seed:
+        params["seed"] = seed
+    return f"https://image.pollinations.ai/prompt/{q}?{urllib.parse.urlencode(params)}"
+
+
+async def pollinations_image_test(client: httpx.AsyncClient) -> TestResult:
+    model = (os.getenv("POLLINATIONS_MODEL") or "flux").strip() or "flux"
+    seed = (os.getenv("POLLINATIONS_SEED") or "").strip()
+    try:
+        width = int((os.getenv("POLLINATIONS_WIDTH") or "1200").strip() or 1200)
+        height = int((os.getenv("POLLINATIONS_HEIGHT") or "630").strip() or 630)
+    except Exception:
+        width, height = 1200, 630
+
+    prompt = "High quality abstract tech background, no text, no logos"
+    url = _pollinations_build_url(
+        prompt, width=width, height=height, model=model, seed=seed
+    )
+
+    try:
+        r = await client.get(url, follow_redirects=True)
+        if r.status_code >= 400:
+            return TestResult(
+                "pollinations", model, "image", False, r.status_code, r.text[:160]
+            )
+        ctype = (r.headers.get("content-type") or "").lower()
+        ok = ctype.startswith("image/") and len(r.content) > 1000
+        return TestResult(
+            "pollinations",
+            model,
+            "image",
+            ok,
+            r.status_code,
+            ctype or "(no content-type)",
+        )
+    except Exception as e:
+        return TestResult("pollinations", model, "image", False, None, str(e)[:200])
+
+
 async def main() -> int:
     # Load .env into process env for this script
     load_dotenv(os.path.join(os.getcwd(), ".env"))
 
     groq_keys = _pool_from_env("GROQ_API_KEY", "GROQ_API_KEYS")
-    nvidia_keys = _pool_from_env("NVIDIA_API_KEY", "NVIDIA_API_KEYS")
+    provider = (
+        (os.getenv("IMAGE_AI_PROVIDER", "pollinations") or "pollinations")
+        .strip()
+        .lower()
+    )
+    pollinations_enabled = (os.getenv("ENABLE_IMAGE_AI") or "0").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
     results: List[TestResult] = []
 
@@ -514,11 +396,10 @@ async def main() -> int:
                 results.append(await groq_chat_test(client, api_key, model))
                 results.append(await groq_function_call_test(client, api_key, model))
 
-    # --- NVIDIA flux ---
-    flux_url = (
-        os.getenv("NVIDIA_FLUX_KONTEXT_URL") or ""
-    ).strip() or "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-kontext-dev"
-    results.append(await nvidia_flux_test(nvidia_keys, flux_url))
+    # --- Pollinations ---
+    if pollinations_enabled and provider in ("pollinations", "auto"):
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            results.append(await pollinations_image_test(client))
 
     print_table(results)
 

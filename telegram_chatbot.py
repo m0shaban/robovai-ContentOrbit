@@ -18,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 import os
+import urllib.parse
 
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.enums import ParseMode
@@ -141,6 +142,7 @@ def shortcuts_text(is_admin_user: bool) -> str:
         "• /ask سؤال — اسأل سؤال تقني\n"
         "• /links — روابطنا\n"
         "• /business — خدمات RoboVAI\n"
+        "• /img وصف — يولّد رابط صورة سريع (Pollinations)\n"
         "• /shortcuts — هذه القائمة\n"
         "• /status — حالة سريعة\n\n"
         "<b>داخل الجروبات</b>\n"
@@ -333,6 +335,48 @@ async def build_app() -> (
     @router.message(Command("business"))
     async def business_cmd(message: Message):
         await message.answer(business_text())
+
+    @router.message(Command("img"))
+    async def img_cmd(message: Message):
+        text = (message.text or "").strip()
+        # Accept: /img <prompt>
+        prompt = text[4:].strip() if text.lower().startswith("/img") else ""
+        if not prompt:
+            await message.answer(
+                "اكتب وصف بعد الأمر. مثال: /img futuristic ai circuit background"
+            )
+            return
+
+        try:
+            w = int(os.getenv("POLLINATIONS_WIDTH", "1200") or 1200)
+        except Exception:
+            w = 1200
+        try:
+            h = int(os.getenv("POLLINATIONS_HEIGHT", "630") or 630)
+        except Exception:
+            h = 630
+        w = max(256, min(2048, w))
+        h = max(256, min(2048, h))
+
+        model = (os.getenv("POLLINATIONS_MODEL") or "flux").strip() or "flux"
+        seed = (os.getenv("POLLINATIONS_SEED") or "").strip()
+
+        encoded = urllib.parse.quote(prompt, safe="")
+        base = f"https://image.pollinations.ai/prompt/{encoded}"
+        params = {
+            "width": str(w),
+            "height": str(h),
+            "model": model,
+            "nologo": "true",
+        }
+        if seed:
+            params["seed"] = seed
+        url = base + "?" + urllib.parse.urlencode(params)
+
+        await message.answer(
+            f"🖼️ رابط الصورة (Pollinations):\n{url}",
+            disable_web_page_preview=False,
+        )
 
     # Inline menu
     @router.callback_query(F.data.startswith("menu:"))

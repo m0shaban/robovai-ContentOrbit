@@ -590,11 +590,12 @@ class ContentOrchestrator:
         )
 
         # Back-compat: SOCIAL_IMAGE_VARIANTS behaves like a max cap.
-        raw_max = (os.getenv("SOCIAL_IMAGE_VARIANTS", "3") or "3").strip()
+        # Default is 1 to avoid unnecessary multi-image sets.
+        raw_max = (os.getenv("SOCIAL_IMAGE_VARIANTS", "1") or "1").strip()
         try:
             max_variants = int(raw_max)
         except Exception:
-            max_variants = 3
+            max_variants = 1
         max_variants = max(1, min(max_variants, 5))
 
         if smart_enabled:

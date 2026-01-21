@@ -26,6 +26,7 @@ import math
 import logging
 import re
 import json
+import urllib.parse
 from typing import Optional, Tuple, List, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
@@ -215,7 +216,6 @@ class ImageGenerator:
 
         # Round-robin indexes for multi-key pools
         self._groq_key_index = 0
-        self._nvidia_key_index = 0
 
         # Font paths - we'll try multiple locations
         self.font_paths = self._discover_fonts()
@@ -331,12 +331,90 @@ class ImageGenerator:
         # Generic fallback (looks good for most posts)
         preferred += ["tech_grid", "gradient_sunset", "dark_glass", "clean_minimal"]
 
+        candidates: List[str] = []
         for token in preferred:
             for p in paths:
                 if token in os.path.basename(p).lower():
-                    return p
+                    candidates.append(p)
+
+        # If we found any matches, pick randomly among them to avoid repeating the
+        # same background for similar topics.
+        if candidates:
+            # De-dup while preserving order
+            deduped = list(dict.fromkeys(candidates))
+            return random.choice(deduped)
 
         return random.choice(paths)
+
+    def _choose_palette(
+        self, profile: "TopicProfile", *, use_local_bg: bool
+    ) -> ColorPalette:
+        """Choose a palette based on env + context.
+
+        Env: DESIGN_PALETTE_MODE
+        - topic: always use the topic-inferred palette (old behavior)
+        - random: pick a random palette
+        - mixed: prefer topic palette but rotate through others
+
+        Default:
+        - When local backgrounds are enabled: random (more variety)
+        - Otherwise: topic (more consistent gradients)
+        """
+
+        mode = (os.getenv("DESIGN_PALETTE_MODE") or "").strip().lower()
+        if not mode:
+            mode = "random" if use_local_bg else "topic"
+
+        if mode not in ("topic", "random", "mixed"):
+            mode = "topic"
+
+        if mode == "topic":
+            return profile.palette
+
+        pool = list(ColorPalette)
+        if not pool:
+            return profile.palette
+
+        if mode == "mixed":
+            pool = [profile.palette] + [p for p in pool if p != profile.palette]
+
+        try:
+            return random.choice(pool)
+        except Exception:
+            return profile.palette
+
+    def _pollinations_build_url(self, prompt: str, *, width: int, height: int) -> str:
+        prompt = (prompt or "").strip()
+        encoded = urllib.parse.quote(prompt, safe="")
+        base = f"https://image.pollinations.ai/prompt/{encoded}"
+
+        model = (os.getenv("POLLINATIONS_MODEL") or "flux").strip() or "flux"
+        seed = (os.getenv("POLLINATIONS_SEED") or "").strip()
+
+        params = {
+            "width": str(width),
+            "height": str(height),
+            "model": model,
+            "nologo": "true",
+        }
+        if seed:
+            params["seed"] = seed
+
+        return base + "?" + urllib.parse.urlencode(params)
+
+    def _pollinations_generate_background(
+        self, prompt: str, size: Tuple[int, int]
+    ) -> Optional[Image.Image]:
+        try:
+            url = self._pollinations_build_url(prompt, width=size[0], height=size[1])
+            r = requests.get(url, timeout=60)
+            r.raise_for_status()
+            img = Image.open(io.BytesIO(r.content))
+            img = img.convert("RGBA")
+            return self._cover_resize(img, size)
+        except Exception as e:
+            logger.warning(f"Pollinations background failed: {e}")
+            return None
 
     def _load_local_background(
         self,
@@ -1345,8 +1423,13 @@ class ImageGenerator:
         profile = self._analyze_topic(title, hook)
         title, hook = self._maybe_prefix_emoji(title=title, hook=hook, profile=profile)
 
+        # Used both for background selection and for picking default palette behavior.
+        use_local_bg = background_override is None and self._env_flag(
+            "LOCAL_BACKGROUNDS_ENABLED", "1"
+        )
+
         if palette is None:
-            palette = profile.palette
+            palette = self._choose_palette(profile, use_local_bg=use_local_bg)
         if gradient_type is None:
             gradient_type = profile.gradient_type
 
@@ -1365,19 +1448,36 @@ class ImageGenerator:
             if image.size != size:
                 image = image.resize(size, Image.Resampling.LANCZOS)
         else:
-            use_local_bg = self._env_flag("LOCAL_BACKGROUNDS_ENABLED", "1")
-            local_bg = None
-            if use_local_bg:
-                local_bg = self._load_local_background(
-                    profile=profile, title=title, hook=hook, size=size
+            ai_bg: Optional[Image.Image] = None
+            if self._env_flag("ENABLE_IMAGE_AI", "0"):
+                provider = (
+                    (os.getenv("IMAGE_AI_PROVIDER", "pollinations") or "pollinations")
+                    .strip()
+                    .lower()
                 )
-            if local_bg is not None:
-                image = local_bg
+                if provider not in ("pollinations", "auto", "none"):
+                    provider = "pollinations"
+                if provider in ("pollinations", "auto"):
+                    prompt = self._build_ai_image_prompt(title=title, hook=hook)
+                    ai_bg = self._pollinations_generate_background(prompt, size=size)
+
+            if ai_bg is not None:
+                image = ai_bg.convert("RGBA")
+                if image.size != size:
+                    image = image.resize(size, Image.Resampling.LANCZOS)
             else:
-                image = self._create_gradient(
-                    size, colors, self.config.gradient_type
-                ).convert("RGBA")
-                image = self._add_geometric_elements(image, accent_color)
+                local_bg = None
+                if use_local_bg:
+                    local_bg = self._load_local_background(
+                        profile=profile, title=title, hook=hook, size=size
+                    )
+                if local_bg is not None:
+                    image = local_bg
+                else:
+                    image = self._create_gradient(
+                        size, colors, self.config.gradient_type
+                    ).convert("RGBA")
+                    image = self._add_geometric_elements(image, accent_color)
 
         # Contrast helpers (keep on even for AI backgrounds)
         image = self._add_overlay(image)
@@ -1791,85 +1891,8 @@ class ImageGenerator:
                 )
             )
 
-        # Optionally add 1 AI-generated background variant (only if we have 2+ images requested).
-        if count >= 2:
-            ai_variant = self._maybe_generate_ai_variant(title=title, hook=hook)
-            if ai_variant is not None:
-                images.append(ai_variant)
-
         # Keep list bounded (caller may request up to 6)
         return images[: max(1, min(count, 6))]
-
-    def _maybe_generate_ai_variant(
-        self, title: str, hook: Optional[str]
-    ) -> Optional[Image.Image]:
-        """Best-effort AI image variant.
-
-        Strategy:
-        - Build a strong image prompt (optionally via Groq).
-        - Generate an AI background via NVIDIA Flux.1-Kontext (img2img on a base gradient).
-        - Render our template + Arabic/emoji-safe typography on top.
-
-        If anything fails, returns None and the pipeline continues with programmatic variants.
-        """
-        provider = (os.getenv("IMAGE_AI_PROVIDER", "auto") or "auto").strip().lower()
-        enabled = (os.getenv("ENABLE_IMAGE_AI", "0") or "0").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-            "on",
-        )
-        if not enabled:
-            return None
-
-        if provider not in ("auto", "nvidia", "none"):
-            provider = "auto"
-        if provider == "none":
-            return None
-
-        nvidia_key = (os.getenv("NVIDIA_API_KEY") or "").strip()
-        if provider in ("auto", "nvidia") and not nvidia_key:
-            return None
-
-        try:
-            profile = self._analyze_topic(title, hook)
-            palette = profile.palette
-            gradient_type = profile.gradient_type
-            template = profile.template
-            colors = palette.value
-            accent_color = colors[-1]
-
-            # 1) Base background (keeps aspect ratio + some brand colors)
-            base_bg = self._create_gradient(
-                (self.config.width, self.config.height),
-                colors,
-                gradient_type,
-            ).convert("RGBA")
-            base_bg = self._add_geometric_elements(base_bg, accent_color)
-
-            # 2) Build prompt (Groq if available; otherwise heuristic)
-            prompt = self._build_ai_image_prompt(title=title, hook=hook)
-
-            # 3) Generate AI background
-            ai_bg = self._nvidia_flux_kontext_edit(
-                image=base_bg,
-                prompt=prompt,
-            )
-            if ai_bg is None:
-                return None
-
-            # 4) Render text on top
-            return self.generate(
-                title=title,
-                hook=hook,
-                palette=palette,
-                gradient_type=gradient_type,
-                template=template,
-                background_override=ai_bg,
-            )
-        except Exception as e:
-            logger.warning(f"AI image variant failed (fallback to programmatic): {e}")
-            return None
 
     def _build_ai_image_prompt(self, title: str, hook: Optional[str]) -> str:
         """Create a prompt for image generation.
@@ -2018,231 +2041,3 @@ class ImageGenerator:
             return text.strip().strip('"').strip("'")
         except Exception:
             return None
-
-    def _nvidia_flux_kontext_edit(
-        self,
-        image: Image.Image,
-        prompt: str,
-    ) -> Optional[Image.Image]:
-        """Call NVIDIA GenAI Flux.1-Kontext (img2img edit) and return a PIL image."""
-        api_keys = self._get_key_pool("NVIDIA_API_KEYS", "NVIDIA_API_KEY")
-        if not api_keys:
-            return None
-
-        invoke_url = (
-            os.getenv("NVIDIA_FLUX_KONTEXT_URL")
-            or "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-kontext-dev"
-        ).strip()
-
-        # NOTE: NVIDIA NIM Preview APIs may only accept predefined images via example_id.
-        # If enabled, we ignore the provided image and use the example image instead.
-        use_example_id = (
-            os.getenv("NVIDIA_NIM_USE_EXAMPLE_ID") or ""
-        ).strip().lower() in (
-            "1",
-            "true",
-            "yes",
-        )
-        if use_example_id:
-            example_id_raw = (
-                os.getenv("NVIDIA_KONTEXT_EXAMPLE_ID")
-                or os.getenv("NVIDIA_EXAMPLE_IMAGE_ID")
-                or "0"
-            ).strip()
-            try:
-                example_id = int(example_id_raw)
-            except Exception:
-                example_id = 0
-            data_url = f"data:image/png;example_id,{example_id}"
-        else:
-            # Encode input image as data URL
-            buf = io.BytesIO()
-            image.convert("RGB").save(buf, format="PNG", optimize=True)
-            b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-            data_url = f"data:image/png;base64,{b64}"
-
-        steps = int((os.getenv("NVIDIA_IMAGE_STEPS") or "28").strip() or 28)
-        cfg = float((os.getenv("NVIDIA_CFG_SCALE") or "3.5").strip() or 3.5)
-        seed_raw = (os.getenv("NVIDIA_IMAGE_SEED") or "0").strip()
-        try:
-            seed = int(seed_raw)
-        except Exception:
-            seed = 0
-
-        payload = {
-            "prompt": prompt,
-            "image": data_url,
-            "aspect_ratio": "match_input_image",
-            "steps": steps,
-            "cfg_scale": cfg,
-            "seed": seed,
-        }
-        base_headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-
-        last_err: Optional[Exception] = None
-        for _ in range(max(1, len(api_keys))):
-            api_key = self._pick_from_pool(api_keys, "_nvidia_key_index")
-            if not api_key:
-                break
-            headers = {**base_headers, "Authorization": f"Bearer {api_key}"}
-
-            try:
-                r = requests.post(invoke_url, headers=headers, json=payload, timeout=60)
-                if r.status_code in (401, 403, 429):
-                    continue
-                r.raise_for_status()
-                data = r.json()
-
-                # Try to find an image field in common shapes
-                candidate: Optional[str] = None
-                if isinstance(data, dict):
-                    artifacts = data.get("artifacts")
-                    if isinstance(artifacts, list) and artifacts:
-                        a0 = artifacts[0]
-                        if isinstance(a0, dict):
-                            candidate = (
-                                a0.get("base64")
-                                or a0.get("b64_json")
-                                or a0.get("image")
-                                or a0.get("data")
-                            )
-
-                    for key in ("image", "output", "result"):
-                        v = data.get(key)
-                        if isinstance(v, str) and v:
-                            candidate = v
-                            break
-                    if candidate is None:
-                        imgs = data.get("images")
-                        if isinstance(imgs, list) and imgs:
-                            v0 = imgs[0]
-                            if isinstance(v0, str):
-                                candidate = v0
-                            elif isinstance(v0, dict):
-                                candidate = (
-                                    v0.get("image")
-                                    or v0.get("b64_json")
-                                    or v0.get("base64")
-                                    or v0.get("data")
-                                )
-
-                if not candidate:
-                    logger.warning(
-                        f"NVIDIA response missing image field. keys={list(data.keys()) if isinstance(data, dict) else type(data)}"
-                    )
-                    return None
-
-                # Support data URLs and raw base64
-                if candidate.startswith("data:image"):
-                    candidate = candidate.split(",", 1)[1]
-
-                img_bytes = base64.b64decode(candidate)
-                out = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
-                return out
-
-            except Exception as e:
-                last_err = e
-                continue
-
-        if last_err is not None:
-            logger.warning(f"NVIDIA image generation failed: {last_err}")
-        return None
-
-    def generate_variants_and_upload(
-        self,
-        title: str,
-        hook: Optional[str] = None,
-        count: int = 3,
-        palettes: Optional[List[ColorPalette]] = None,
-    ) -> List[str]:
-        """Generate multiple images and upload each to ImgBB; returns list of URLs."""
-        urls: List[str] = []
-        for image in self.generate_variants(
-            title=title, hook=hook, count=count, palettes=palettes
-        ):
-            url = self.upload_to_imgbb(image)
-            if url:
-                urls.append(url)
-        return urls
-
-    def save_local(
-        self, image: Image.Image, filename: str = "generated_image.png"
-    ) -> str:
-        """
-        Save the image locally for testing/preview.
-
-        Args:
-            image: PIL Image to save
-            filename: Output filename
-
-        Returns:
-            Full path to saved file
-        """
-        output_dir = os.path.join(os.path.dirname(__file__), "..", "output")
-        os.makedirs(output_dir, exist_ok=True)
-
-        filepath = os.path.join(output_dir, filename)
-        image.save(filepath, "PNG", quality=95)
-
-        logger.info(f"💾 Image saved: {filepath}")
-        return filepath
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 🧪 TESTING & DEMONSTRATION
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-def demo():
-    """
-    Demonstrate the image generator capabilities.
-    """
-    generator = ImageGenerator()
-
-    # Test with various content
-    test_cases = [
-        {
-            "title": "🚀 كيف تجعل الذكاء الاصطناعي يكتب بأسلوب أنيق؟",
-            "hook": "اكتشف أسرار الكتابة الإبداعية مع AI",
-            "palette": ColorPalette.COSMIC_NIGHT,
-        },
-        {
-            "title": "🔥 Top 10 Python Libraries You Need in 2026",
-            "hook": "Level up your coding game today!",
-            "palette": ColorPalette.CYBER_PUNK,
-        },
-        {
-            "title": "✨ The Future of Technology is Here",
-            "hook": None,
-            "palette": ColorPalette.TECH_BLUE,
-        },
-    ]
-
-    for i, test in enumerate(test_cases):
-        print(f"\n{'='*60}")
-        print(f"Test {i+1}: {test['title'][:40]}...")
-        print(f"{'='*60}")
-
-        image = generator.generate(
-            title=test["title"], hook=test["hook"], palette=test["palette"]
-        )
-
-        # Save locally
-        filename = f"test_image_{i+1}.png"
-        filepath = generator.save_local(image, filename)
-        print(f"✅ Saved: {filepath}")
-
-        # Upload to ImgBB
-        url = generator.upload_to_imgbb(image)
-        if url:
-            print(f"🌐 URL: {url}")
-        else:
-            print("⚠️ Upload skipped or failed")
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    demo()
