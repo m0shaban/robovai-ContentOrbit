@@ -217,6 +217,11 @@ class ConfigManager:
 
         # Groq
         groq_key = env("GROQ_API_KEY")
+        if not groq_key:
+            pool_raw = os.getenv("GROQ_API_KEYS")
+            if pool_raw:
+                first = [k.strip() for k in str(pool_raw).split(",") if k.strip()]
+                groq_key = first[0] if first else None
         if groq_key and self.app_config.groq is None:
             self.app_config.groq = GroqConfig(api_key=groq_key)
             changed = True

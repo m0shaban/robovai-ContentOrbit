@@ -21,6 +21,10 @@ services:
         value: 3.11.0
       - key: PORT
         value: 8080
+      - key: TIMEZONE
+        value: Africa/Cairo
+      - key: LOG_LEVEL
+        value: INFO
       - key: GROQ_API_KEY
         sync: false
       - key: TELEGRAM_TOKEN
@@ -45,6 +49,30 @@ services:
         sync: false
       - key: IMGBB_API_KEY
         sync: false
+
+      # Image pipeline defaults (local backgrounds + watermark)
+      - key: ENABLE_IMAGE_AI
+        value: "0"
+      - key: LOCAL_BACKGROUNDS_ENABLED
+        value: "1"
+      - key: LOCAL_BACKGROUNDS_DIR
+        value: assets/backgrounds
+      - key: LOCAL_BACKGROUNDS_STRATEGY
+        value: topic
+      - key: LOCAL_BACKGROUNDS_DIM
+        value: "0.12"
+      - key: LOCAL_BACKGROUNDS_BLUR
+        value: "0"
+      - key: IMAGE_WATERMARK_ENABLED
+        value: "1"
+      - key: IMAGE_WATERMARK_TEXT
+        sync: false
+      - key: IMAGE_WATERMARK_OPACITY
+        value: "0.33"
+      - key: IMAGE_WATERMARK_FONT_SIZE
+        value: "18"
+      - key: AUTO_EMOJI_TITLE
+        value: "1"
     disk:
       name: contentorbit-data
       mountPath: /app/data

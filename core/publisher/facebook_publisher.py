@@ -20,6 +20,7 @@ import asyncio
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import logging
+import json
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -189,6 +190,69 @@ class FacebookPublisher:
             logger.error(f"Facebook photo publish failed: {e}")
             # Fallback to text post with link
             return await self.publish_post(f"{message}\n\n📷 {photo_url}")
+
+    @retry(
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=30)
+    )
+    async def publish_photos(
+        self, message: str, photo_urls: List[str]
+    ) -> Optional[str]:
+        """Publish multiple photos as a single Facebook post (attached media)."""
+        if not self.is_configured():
+            return None
+
+        urls = [u for u in (photo_urls or []) if (u or "").strip()]
+        if not urls:
+            return await self.publish_post(message)
+
+        # Keep it reasonable; FB supports more, but this avoids rate/timeout issues.
+        urls = urls[:10]
+
+        client = await self._get_client()
+
+        try:
+            media_fbids: List[str] = []
+            upload_url = f"{self.GRAPH_API_URL}/{self.page_id}/photos"
+
+            # 1) Upload photos as unpublished
+            for url in urls:
+                params = {
+                    "access_token": self.access_token,
+                    "url": url,
+                    "published": "false",
+                }
+                r = await client.post(upload_url, params=params)
+                r.raise_for_status()
+                data = r.json()
+                media_id = data.get("id")
+                if media_id:
+                    media_fbids.append(str(media_id))
+
+            if not media_fbids:
+                return await self.publish_photo(message, urls[0])
+
+            # 2) Create feed post with attached_media
+            feed_url = f"{self.GRAPH_API_URL}/{self.page_id}/feed"
+            params: Dict[str, Any] = {
+                "access_token": self.access_token,
+                "message": message,
+            }
+            for i, fbid in enumerate(media_fbids):
+                params[f"attached_media[{i}]"] = json.dumps({"media_fbid": fbid})
+
+            r2 = await client.post(feed_url, data=params)
+            r2.raise_for_status()
+            data2 = r2.json()
+            post_id = data2.get("id")
+
+            logger.info(
+                f"✅ Published multi-photo to Facebook: post_id={post_id} photos={len(media_fbids)}"
+            )
+            return post_id
+
+        except Exception as e:
+            logger.error(f"Facebook multi-photo publish failed: {e}")
+            return await self.publish_photo(message, urls[0])
 
     # ═══════════════════════════════════════════════════════════════════════════
     # PAGE INFO

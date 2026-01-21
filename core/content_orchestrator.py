@@ -21,7 +21,8 @@ Usage:
 
 import asyncio
 import time
-from typing import Optional, Dict, Any, Tuple
+import os
+from typing import Optional, Dict, Any, Tuple, List
 from datetime import datetime
 from dataclasses import dataclass, field
 import logging
@@ -165,6 +166,18 @@ class ContentOrchestrator:
             # Resolve an image early so all platforms can use it.
             image_url = await self._resolve_or_generate_image_url(article)
 
+            social_image_urls: Optional[List[str]] = None
+            if (
+                self.config.app_config.schedule.telegram_enabled
+                and self.telegram.is_configured()
+            ) or (
+                self.config.app_config.schedule.facebook_enabled
+                and self.facebook.is_configured()
+            ):
+                social_image_urls = await self._resolve_or_generate_social_image_urls(
+                    article, image_url
+                )
+
             # ═══════════════════════════════════════════════════════════════
             # STEP 2: GENERATE ASSET CONTENT (The Hubs)
             # Blogger FIRST so Dev.to canonical_url points to robovai.tech
@@ -219,7 +232,7 @@ class ContentOrchestrator:
             ):
                 logger.info("📱 Step 3A: Publishing to Telegram (Hub)...")
                 message_id = await self._publish_to_telegram(
-                    article, blogger_url, devto_url, image_url
+                    article, blogger_url, devto_url, social_image_urls
                 )
                 if message_id:
                     result.telegram_message_id = message_id
@@ -233,7 +246,7 @@ class ContentOrchestrator:
             ):
                 logger.info("📘 Step 3B: Publishing to Facebook (→Blogger)...")
                 post_id = await self._publish_to_facebook(
-                    article, primary_url, image_url
+                    article, primary_url, social_image_urls
                 )
                 if post_id:
                     result.facebook_post_id = post_id
@@ -378,7 +391,7 @@ class ContentOrchestrator:
         article: FetchedArticle,
         blogger_url: Optional[str],
         devto_url: Optional[str],
-        image_url: Optional[str],
+        image_urls: Optional[List[str]],
     ) -> Optional[int]:
         """Generate and publish to Telegram with smart CTA"""
         try:
@@ -412,7 +425,9 @@ class ContentOrchestrator:
 
             # Publish (with image if available)
             message_id = await self.telegram.publish_post(
-                text=post_text, image_url=image_url
+                text=post_text,
+                image_urls=image_urls,
+                image_url=(image_urls[0] if image_urls else None),
             )
 
             if message_id:
@@ -436,7 +451,7 @@ class ContentOrchestrator:
             return None
 
     async def _publish_to_facebook(
-        self, article: FetchedArticle, article_url: str, image_url: Optional[str]
+        self, article: FetchedArticle, article_url: str, image_urls: Optional[List[str]]
     ) -> Optional[str]:
         """Generate and publish to Facebook with smart CTA"""
         try:
@@ -447,7 +462,9 @@ class ContentOrchestrator:
                 title = ""
 
             try:
-                hook = await self.llm.generate_egyptian_arabic_summary(article, max_words=55)
+                hook = await self.llm.generate_egyptian_arabic_summary(
+                    article, max_words=55
+                )
             except Exception:
                 hook = ""
 
@@ -465,10 +482,19 @@ class ContentOrchestrator:
             )
 
             # Publish
-            if image_url:
-                # Photo post: include link inside caption for traffic.
+            if image_urls:
+                photo_urls = [u for u in image_urls if (u or "").strip()]
+            else:
+                photo_urls = []
+
+            if len(photo_urls) >= 2:
+                post_id = await self.facebook.publish_photos(
+                    message=f"{post_text}\n\n{article_url}",
+                    photo_urls=photo_urls,
+                )
+            elif len(photo_urls) == 1:
                 post_id = await self.facebook.publish_photo(
-                    message=f"{post_text}\n\n{article_url}", photo_url=image_url
+                    message=f"{post_text}\n\n{article_url}", photo_url=photo_urls[0]
                 )
             else:
                 post_id = await self.facebook.publish_post(
@@ -550,6 +576,138 @@ class ContentOrchestrator:
             logger.warning(f"Image generation failed: {e}")
             return None
 
+    async def _resolve_or_generate_social_image_urls(
+        self, article: FetchedArticle, base_image_url: Optional[str]
+    ) -> List[str]:
+        """Return a list of image URLs for social posts (Telegram/Facebook)."""
+        smart_enabled = (
+            os.getenv("SOCIAL_IMAGE_SMART", "1") or "1"
+        ).strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+
+        # Back-compat: SOCIAL_IMAGE_VARIANTS behaves like a max cap.
+        raw_max = (os.getenv("SOCIAL_IMAGE_VARIANTS", "3") or "3").strip()
+        try:
+            max_variants = int(raw_max)
+        except Exception:
+            max_variants = 3
+        max_variants = max(1, min(max_variants, 5))
+
+        if smart_enabled:
+            desired = self._decide_social_image_variant_count(article, base_image_url)
+            desired = min(desired, max_variants)
+        else:
+            desired = max_variants
+
+        urls: List[str] = []
+        if base_image_url:
+            urls.append(base_image_url)
+
+        if len(urls) < desired:
+            hook = (article.summary or "").strip()[:110] or None
+            try:
+                extra = await asyncio.to_thread(
+                    self.image_generator.generate_variants_and_upload,
+                    article.title,
+                    hook,
+                    desired - len(urls),
+                    None,
+                )
+            except Exception as e:
+                logger.warning(f"Social image variants generation failed: {e}")
+                extra = []
+            urls.extend(extra)
+
+        # De-dup while preserving order
+        seen = set()
+        out: List[str] = []
+        for u in urls:
+            if not u:
+                continue
+            if u in seen:
+                continue
+            seen.add(u)
+            out.append(u)
+
+        return out[:desired]
+
+    def _decide_social_image_variant_count(
+        self, article: FetchedArticle, base_image_url: Optional[str]
+    ) -> int:
+        """Heuristic: choose 1 image for simple posts, 2-4 for list/guide/long topics."""
+        title = (article.title or "").strip()
+        summary = (article.summary or "").strip()
+
+        title_len = len(title)
+        summary_len = len(summary)
+
+        # If we already have an external image (RSS/og:image), default to 1 unless
+        # the post is clearly a list/guide that benefits from a carousel.
+        has_existing = bool(base_image_url)
+
+        text = f"{title} {summary}".lower()
+        # Keywords that usually imply a multi-slide carousel / breakdown.
+        carousel_keys = [
+            # Arabic
+            "خطوة",
+            "خطوات",
+            "دليل",
+            "شرح",
+            "ملخص",
+            "مقارنة",
+            "أفضل",
+            "افضل",
+            "قائمة",
+            "نصائح",
+            "أخطاء",
+            "اخطاء",
+            "مميزات",
+            "عيوب",
+            "أسئلة",
+            "اسئلة",
+            "كيف",
+            "لماذا",
+            # English
+            "how to",
+            "guide",
+            "step",
+            "steps",
+            "tips",
+            "mistakes",
+            "comparison",
+            "vs",
+            "top ",
+            "best ",
+            "checklist",
+        ]
+
+        has_numbered_list = any(ch.isdigit() for ch in title) and (
+            "top" in text or "أفضل" in text or "افضل" in text
+        )
+        wants_carousel = has_numbered_list or any(k in text for k in carousel_keys)
+
+        # Very short topics rarely need more than one.
+        if title_len <= 55 and summary_len <= 140 and not wants_carousel:
+            return 1
+
+        # Medium complexity: 2 images (headline + variant style)
+        if (title_len <= 85 and summary_len <= 240) and not wants_carousel:
+            return 2 if not has_existing else 1
+
+        # List/guide/long topic: 3 images
+        if wants_carousel and (title_len > 55 or summary_len > 140):
+            return 3
+
+        # Very long/complex: 4 images
+        if title_len > 95 or summary_len > 320:
+            return 4
+
+        return 2
+
     # ═══════════════════════════════════════════════════════════════════════════
     # HELPER METHODS
     # ═══════════════════════════════════════════════════════════════════════════
@@ -627,13 +785,21 @@ class ContentOrchestrator:
 
             elif platform == "telegram":
                 image_url = await self._resolve_or_generate_image_url(article)
-                msg_id = await self._publish_to_telegram(article, None, None, image_url)
+                image_urls = await self._resolve_or_generate_social_image_urls(
+                    article, image_url
+                )
+                msg_id = await self._publish_to_telegram(
+                    article, None, None, image_urls
+                )
                 return (msg_id is not None, str(msg_id) if msg_id else None)
 
             elif platform == "facebook":
                 image_url = await self._resolve_or_generate_image_url(article)
+                image_urls = await self._resolve_or_generate_social_image_urls(
+                    article, image_url
+                )
                 post_id = await self._publish_to_facebook(
-                    article, article.original_url, image_url
+                    article, article.original_url, image_urls
                 )
                 return (post_id is not None, post_id)
 

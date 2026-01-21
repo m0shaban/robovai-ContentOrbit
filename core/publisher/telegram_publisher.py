@@ -24,7 +24,12 @@ import io
 
 import httpx
 from aiogram import Bot
-from aiogram.types import FSInputFile, URLInputFile, BufferedInputFile
+from aiogram.types import (
+    FSInputFile,
+    URLInputFile,
+    BufferedInputFile,
+    InputMediaPhoto,
+)
 from aiogram.enums import ParseMode
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -128,6 +133,101 @@ class TelegramPublisher:
         except Exception as e:
             logger.error(f"Telegram publish failed: {e}")
             return None
+
+    @retry(
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=30)
+    )
+    async def publish_media_group(
+        self,
+        text: str,
+        image_urls: List[str],
+        parse_mode: ParseMode = ParseMode.HTML,
+        disable_notification: bool = False,
+    ) -> Optional[int]:
+        """Publish multiple photos as a Telegram album (media group)."""
+        if not self.is_configured():
+            logger.error("Telegram not configured")
+            return None
+
+        urls = [u for u in (image_urls or []) if (u or "").strip()]
+        if not urls:
+            return await self.publish_text(
+                text, parse_mode, disable_notification=disable_notification
+            )
+
+        # Telegram album limit is 10; keep it smaller by default.
+        urls = urls[:10]
+
+        bot = self._get_bot()
+
+        # Caption limit for media is 1024 chars. Preserve full CTA by follow-up if needed.
+        if len(text) <= 1024:
+            caption = text
+            follow_up = None
+        else:
+            caption = text[:900].rstrip() + "\n\n⬇️ <b>التفاصيل والروابط بالأسفل</b>"
+            follow_up = text
+
+        media: List[InputMediaPhoto] = []
+        try:
+            for i, url in enumerate(urls):
+                # Prefer downloading bytes for reliability, fallback to URLInputFile.
+                try:
+                    async with httpx.AsyncClient(
+                        timeout=30.0, follow_redirects=True
+                    ) as client:
+                        r = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+                        r.raise_for_status()
+                        content_type = (r.headers.get("content-type") or "").lower()
+                        if "image" not in content_type:
+                            raise ValueError(f"Non-image content-type: {content_type}")
+                        photo_input = BufferedInputFile(
+                            r.content, filename=f"image_{i+1}.jpg"
+                        )
+                except Exception:
+                    photo_input = URLInputFile(url)
+
+                if i == 0:
+                    media.append(
+                        InputMediaPhoto(
+                            media=photo_input, caption=caption, parse_mode=parse_mode
+                        )
+                    )
+                else:
+                    media.append(InputMediaPhoto(media=photo_input))
+
+            messages = await bot.send_media_group(
+                chat_id=self.channel_id,
+                media=media,
+                disable_notification=disable_notification,
+            )
+
+            first_id = messages[0].message_id if messages else None
+            logger.info(
+                f"✅ Published media group to Telegram: message_id={first_id} photos={len(media)}"
+            )
+
+            if follow_up:
+                await self.publish_text(
+                    follow_up, parse_mode, disable_notification=disable_notification
+                )
+
+            return first_id
+
+        except Exception as e:
+            logger.error(f"Telegram media group publish failed: {e}")
+            # Fallback to single photo if possible, then text.
+            try:
+                return await self.publish_photo(
+                    caption,
+                    urls[0],
+                    parse_mode,
+                    disable_notification=disable_notification,
+                )
+            except Exception:
+                return await self.publish_text(
+                    text, parse_mode, disable_notification=disable_notification
+                )
 
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=30)
@@ -275,6 +375,7 @@ class TelegramPublisher:
         self,
         text: str,
         image_url: Optional[str] = None,
+        image_urls: Optional[List[str]] = None,
         parse_mode: ParseMode = ParseMode.HTML,
     ) -> Optional[int]:
         """
@@ -291,6 +392,15 @@ class TelegramPublisher:
         Returns:
             Message ID if successful
         """
+        if image_urls:
+            cleaned = [u for u in image_urls if (u or "").strip()]
+            if len(cleaned) >= 2:
+                return await self.publish_media_group(
+                    text, cleaned, parse_mode=parse_mode
+                )
+            if len(cleaned) == 1:
+                image_url = cleaned[0]
+
         if not image_url:
             return await self.publish_text(text, parse_mode)
 

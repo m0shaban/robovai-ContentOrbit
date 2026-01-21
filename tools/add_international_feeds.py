@@ -77,7 +77,11 @@ def curated_feeds() -> List[Dict[str, Any]]:
         ("Qiita: azure", "https://qiita.com/tags/azure/feed", "programming"),
         ("Qiita: devops", "https://qiita.com/tags/devops/feed", "programming"),
         ("Qiita: security", "https://qiita.com/tags/security/feed", "news"),
-        ("Qiita: machine learning", "https://qiita.com/tags/machine-learning/feed", "ai"),
+        (
+            "Qiita: machine learning",
+            "https://qiita.com/tags/machine-learning/feed",
+            "ai",
+        ),
         ("Qiita: deep learning", "https://qiita.com/tags/deep-learning/feed", "ai"),
         ("Qiita: llm", "https://qiita.com/tags/llm/feed", "ai"),
         ("Qiita: openai", "https://qiita.com/tags/openai/feed", "ai"),

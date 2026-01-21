@@ -6,7 +6,14 @@ __author__ = "ContentOrbit Team"
 
 from .config_manager import ConfigManager, get_config, reload_config
 from .database_manager import DatabaseManager, get_db, close_db
-from .content_orchestrator import ContentOrchestrator, PipelineResult
+
+# Keep heavy imports optional so lightweight consumers (e.g. image generator demo)
+# don't require the full pipeline dependencies at import-time.
+try:
+    from .content_orchestrator import ContentOrchestrator, PipelineResult
+except Exception:  # pragma: no cover
+    ContentOrchestrator = None  # type: ignore[assignment]
+    PipelineResult = None  # type: ignore[assignment]
 
 __all__ = [
     "ConfigManager",
@@ -15,6 +22,10 @@ __all__ = [
     "DatabaseManager",
     "get_db",
     "close_db",
-    "ContentOrchestrator",
-    "PipelineResult",
 ]
+
+if ContentOrchestrator is not None:
+    __all__ += [
+        "ContentOrchestrator",
+        "PipelineResult",
+    ]

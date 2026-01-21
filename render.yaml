@@ -18,6 +18,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: TIMEZONE
+        value: Africa/Cairo
+      - key: LOG_LEVEL
+        value: INFO
       - key: DASHBOARD_PASSWORD
         sync: false # Set in Render dashboard
       - key: GROQ_API_KEY
@@ -42,6 +46,32 @@ services:
         sync: false
       - key: FACEBOOK_PAGE_ACCESS_TOKEN
         sync: false
+      - key: IMGBB_API_KEY
+        sync: false
+
+      # Image pipeline defaults (local backgrounds + watermark)
+      - key: ENABLE_IMAGE_AI
+        value: "0"
+      - key: LOCAL_BACKGROUNDS_ENABLED
+        value: "1"
+      - key: LOCAL_BACKGROUNDS_DIR
+        value: assets/backgrounds
+      - key: LOCAL_BACKGROUNDS_STRATEGY
+        value: topic
+      - key: LOCAL_BACKGROUNDS_DIM
+        value: "0.12"
+      - key: LOCAL_BACKGROUNDS_BLUR
+        value: "0"
+      - key: IMAGE_WATERMARK_ENABLED
+        value: "1"
+      - key: IMAGE_WATERMARK_TEXT
+        sync: false
+      - key: IMAGE_WATERMARK_OPACITY
+        value: "0.33"
+      - key: IMAGE_WATERMARK_FONT_SIZE
+        value: "18"
+      - key: AUTO_EMOJI_TITLE
+        value: "1"
     disk:
       name: contentorbit-data
       mountPath: /app/data
@@ -60,6 +90,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: TIMEZONE
+        value: Africa/Cairo
+      - key: LOG_LEVEL
+        value: INFO
       - key: GROQ_API_KEY
         fromService:
           type: web
@@ -115,6 +149,68 @@ services:
           type: web
           name: contentorbit-dashboard
           envVarKey: FACEBOOK_PAGE_ACCESS_TOKEN
+      - key: IMGBB_API_KEY
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: IMGBB_API_KEY
+
+      # Image pipeline defaults (match dashboard)
+      - key: ENABLE_IMAGE_AI
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: ENABLE_IMAGE_AI
+      - key: LOCAL_BACKGROUNDS_ENABLED
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: LOCAL_BACKGROUNDS_ENABLED
+      - key: LOCAL_BACKGROUNDS_DIR
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: LOCAL_BACKGROUNDS_DIR
+      - key: LOCAL_BACKGROUNDS_STRATEGY
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: LOCAL_BACKGROUNDS_STRATEGY
+      - key: LOCAL_BACKGROUNDS_DIM
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: LOCAL_BACKGROUNDS_DIM
+      - key: LOCAL_BACKGROUNDS_BLUR
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: LOCAL_BACKGROUNDS_BLUR
+      - key: IMAGE_WATERMARK_ENABLED
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: IMAGE_WATERMARK_ENABLED
+      - key: IMAGE_WATERMARK_TEXT
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: IMAGE_WATERMARK_TEXT
+      - key: IMAGE_WATERMARK_OPACITY
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: IMAGE_WATERMARK_OPACITY
+      - key: IMAGE_WATERMARK_FONT_SIZE
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: IMAGE_WATERMARK_FONT_SIZE
+      - key: AUTO_EMOJI_TITLE
+        fromService:
+          type: web
+          name: contentorbit-dashboard
+          envVarKey: AUTO_EMOJI_TITLE
     disk:
       name: contentorbit-data
       mountPath: /app/data

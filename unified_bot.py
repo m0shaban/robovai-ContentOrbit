@@ -66,13 +66,29 @@ async def main():
     """Run all services in parallel"""
     logger.info("🚀 Starting Unified Bot Service...")
 
-    # Run all tasks concurrently
-    await asyncio.gather(
-        run_health_server(),  # Health endpoint (required for Render)
-        run_main_bot(),  # Content publishing bot
-        run_chatbot(),  # Interactive chatbot
-        return_exceptions=True,
+    # Telegram polling commonly conflicts during deploys/scaling. Posting to channels
+    # does NOT require polling, so keep chatbot optional.
+    chatbot_enabled = os.getenv("ENABLE_TELEGRAM_CHATBOT", "0").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
     )
+
+    # Run all tasks concurrently
+    tasks = [
+        run_health_server(),
+        run_main_bot(),
+    ]
+
+    if chatbot_enabled:
+        tasks.append(run_chatbot())
+    else:
+        logger.info(
+            "💤 Telegram chatbot polling disabled (set ENABLE_TELEGRAM_CHATBOT=1 to enable)."
+        )
+
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 if __name__ == "__main__":

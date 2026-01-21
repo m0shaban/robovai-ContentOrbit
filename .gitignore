@@ -57,6 +57,9 @@ data/config.json
 .cache/
 *.cache
 
+# Generated outputs (runtime only)
+output/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -19,6 +19,7 @@ Usage:
 import asyncio
 import json
 import re
+import os
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 import logging
@@ -82,6 +83,157 @@ class LLMClient:
         """
         self.config = config
         self._http_client: Optional[httpx.AsyncClient] = None
+        self._groq_key_index: int = 0
+
+    def _smart_model_routing_enabled(self) -> bool:
+        return (os.getenv("SMART_MODEL_ROUTING", "1") or "1").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+
+    def _env_first(self, *keys: str) -> Optional[str]:
+        for k in keys:
+            v = os.getenv(k)
+            if v is not None and str(v).strip() != "":
+                return str(v).strip()
+        return None
+
+    def _select_model(self, task: Optional[str], default_model: str) -> str:
+        """Select Groq model for a given task.
+
+        Uses env overrides when SMART_MODEL_ROUTING is enabled.
+        """
+        if not self._smart_model_routing_enabled() or not task:
+            return default_model
+
+        t = task.strip().upper().replace("-", "_")
+        # Direct per-task override: GROQ_MODEL_<TASK>
+        direct = self._env_first(f"GROQ_MODEL_{t}")
+        if direct:
+            return direct
+
+        # Curated fallbacks by task family
+        if t in ("BLOGGER", "BLOGGER_ARTICLE", "ARTICLE_AR", "LONG_AR"):
+            return (
+                self._env_first("GROQ_MODEL_BLOGGER", "GROQ_MODEL_LONG")
+                or default_model
+            )
+        if t in ("DEVTO", "DEVTO_ARTICLE", "ARTICLE_EN", "LONG_EN"):
+            return (
+                self._env_first(
+                    "GROQ_MODEL_DEVTO", "GROQ_MODEL_LONG_EN", "GROQ_MODEL_LONG"
+                )
+                or default_model
+            )
+        if t in ("TELEGRAM", "TELEGRAM_POST", "SOCIAL_AR"):
+            return (
+                self._env_first(
+                    "GROQ_MODEL_TELEGRAM", "GROQ_MODEL_SOCIAL", "GROQ_MODEL_SHORT"
+                )
+                or default_model
+            )
+        if t in ("FACEBOOK", "FACEBOOK_POST"):
+            return (
+                self._env_first(
+                    "GROQ_MODEL_FACEBOOK", "GROQ_MODEL_SOCIAL", "GROQ_MODEL_SHORT"
+                )
+                or default_model
+            )
+        if t in ("SUMMARY", "EGY_SUMMARY", "EGYPTIAN_SUMMARY"):
+            return (
+                self._env_first("GROQ_MODEL_SUMMARY", "GROQ_MODEL_SHORT")
+                or default_model
+            )
+        if t in ("TITLE", "EGY_TITLE", "EGYPTIAN_TITLE"):
+            return (
+                self._env_first("GROQ_MODEL_TITLE", "GROQ_MODEL_SHORT") or default_model
+            )
+        if t in ("QA_AR", "QA_EN", "QA"):
+            return self._env_first("GROQ_MODEL_QA", "GROQ_MODEL_SHORT") or default_model
+        if t in ("LINKEDIN",):
+            return (
+                self._env_first(
+                    "GROQ_MODEL_LINKEDIN", "GROQ_MODEL_SOCIAL", "GROQ_MODEL_SHORT"
+                )
+                or default_model
+            )
+        if t in ("VIDEO", "VIDEO_SCRIPT"):
+            return (
+                self._env_first(
+                    "GROQ_MODEL_VIDEO", "GROQ_MODEL_VIDEO_SCRIPT", "GROQ_MODEL_SHORT"
+                )
+                or default_model
+            )
+        if t in ("REDDIT", "SOCIAL_EN"):
+            return (
+                self._env_first(
+                    "GROQ_MODEL_REDDIT",
+                    "GROQ_MODEL_SOCIAL_EN",
+                    "GROQ_MODEL_SHORT_EN",
+                    "GROQ_MODEL_SHORT",
+                )
+                or default_model
+            )
+        if t in ("IMAGE_PROMPT", "PROMPT"):
+            return (
+                self._env_first(
+                    "GROQ_MODEL_IMAGE_PROMPT", "GROQ_MODEL_PROMPT", "GROQ_MODEL_SHORT"
+                )
+                or default_model
+            )
+
+        return default_model
+
+    def _get_groq_key_pool(self) -> List[str]:
+        """Return a de-duplicated list of Groq API keys.
+
+        Sources (in order):
+        - config.json (self.config.app_config.groq.api_key)
+        - GROQ_API_KEY / GROQ_API_KEY_* env vars
+        - GROQ_API_KEYS comma-separated pool
+        """
+        keys: List[str] = []
+
+        try:
+            cfg_key = (
+                getattr(getattr(self.config.app_config, "groq", None), "api_key", None)
+                or ""
+            ).strip()
+            if cfg_key:
+                keys.append(cfg_key)
+        except Exception:
+            pass
+
+        # Any env var starting with GROQ_API_KEY (includes GROQ_API_KEY, GROQ_API_KEY_2, ...)
+        for k, v in os.environ.items():
+            if not k.startswith("GROQ_API_KEY"):
+                continue
+            vv = (v or "").strip()
+            if vv:
+                keys.append(vv)
+
+        pool_raw = (os.getenv("GROQ_API_KEYS") or "").strip()
+        if pool_raw:
+            keys.extend([x.strip() for x in pool_raw.split(",") if x.strip()])
+
+        # De-dupe preserving order
+        seen = set()
+        out: List[str] = []
+        for k in keys:
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append(k)
+        return out
+
+    def _pick_groq_key(self, keys: List[str]) -> Optional[str]:
+        if not keys:
+            return None
+        key = keys[self._groq_key_index % len(keys)]
+        self._groq_key_index = (self._groq_key_index + 1) % max(1, len(keys))
+        return key
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client"""
@@ -89,7 +241,6 @@ class LLMClient:
             self._http_client = httpx.AsyncClient(
                 timeout=120.0,  # LLM calls can be slow
                 headers={
-                    "Authorization": f"Bearer {self.config.app_config.groq.api_key}",
                     "Content-Type": "application/json",
                 },
             )
@@ -113,6 +264,8 @@ class LLMClient:
         system_prompt: Optional[str] = None,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        task: Optional[str] = None,
+        model: Optional[str] = None,
     ) -> str:
         """
         Core generation method
@@ -131,13 +284,15 @@ class LLMClient:
 
         groq_config = self.config.app_config.groq
 
+        selected_model = model or self._select_model(task, groq_config.model)
+
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
         payload = {
-            "model": groq_config.model,
+            "model": selected_model,
             "messages": messages,
             "temperature": temperature or groq_config.temperature,
             "max_tokens": max_tokens or groq_config.max_tokens,
@@ -147,24 +302,56 @@ class LLMClient:
 
         client = await self._get_client()
 
-        try:
-            response = await client.post(self.GROQ_API_URL, json=payload)
-            response.raise_for_status()
+        groq_keys = self._get_groq_key_pool()
+        if not groq_keys:
+            raise ValueError("Groq API not configured (no keys found)")
 
-            data = response.json()
-            content = data["choices"][0]["message"]["content"]
+        last_exc: Optional[Exception] = None
+        for _ in range(max(1, len(groq_keys))):
+            groq_key = self._pick_groq_key(groq_keys)
+            if not groq_key:
+                break
+            headers = {"Authorization": f"Bearer {groq_key}"}
 
-            logger.info(f"✅ Generated {len(content)} characters")
-            return content.strip()
+            try:
+                response = await client.post(
+                    self.GROQ_API_URL, json=payload, headers=headers
+                )
 
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                f"Groq API error: {e.response.status_code} - {e.response.text}"
-            )
-            raise
-        except Exception as e:
-            logger.error(f"Generation error: {e}")
-            raise
+                # Smart fallback when key is invalid / rate-limited / out of credits
+                if response.status_code in (401, 403, 402, 429):
+                    last_exc = httpx.HTTPStatusError(
+                        "Groq key rejected",
+                        request=response.request,
+                        response=response,
+                    )
+                    continue
+
+                response.raise_for_status()
+
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
+
+                logger.info(f"✅ Generated {len(content)} characters")
+                return content.strip()
+
+            except httpx.HTTPStatusError as e:
+                logger.error(
+                    f"Groq API error: {e.response.status_code} - {e.response.text}"
+                )
+                last_exc = e
+                # Continue to next key only on common "try another key" statuses
+                if e.response.status_code in (401, 403, 402, 429):
+                    continue
+                raise
+            except Exception as e:
+                logger.error(f"Generation error: {e}")
+                last_exc = e
+                raise
+
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("Groq generation failed")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # BLOGGER ARTICLE GENERATION
@@ -231,7 +418,9 @@ class LLMClient:
 
 أعطني المقال كاملاً بتنسيق HTML فقط."""
 
-        content = await self._generate(user_prompt, system_prompt, temperature=0.7)
+        content = await self._generate(
+            user_prompt, system_prompt, temperature=0.7, task="blogger_article"
+        )
 
         # Hard guard: never publish non-Arabic scripts in Arabic content.
         if _enforce_no_cjk_cyrillic(content):
@@ -240,10 +429,13 @@ class LLMClient:
                 + "\n\nتأكيد نهائي: اكتب بالعربية فقط بدون أي أحرف صينية/يابانية/روسية.",
                 system_prompt=system_prompt,
                 temperature=0.6,
+                task="blogger_article",
             )
 
         if _enforce_no_cjk_cyrillic(content):
-            raise ValueError("LLM produced disallowed scripts (CJK/Cyrillic) for Arabic article")
+            raise ValueError(
+                "LLM produced disallowed scripts (CJK/Cyrillic) for Arabic article"
+            )
 
         # Extract title from generated content
         title = self._extract_title(content, article.title)
@@ -335,7 +527,9 @@ Summary and call to action...
 
 Provide the complete article in Markdown format."""
 
-        content = await self._generate(user_prompt, system_prompt, temperature=0.6)
+        content = await self._generate(
+            user_prompt, system_prompt, temperature=0.6, task="devto_article"
+        )
 
         # Hard guard: dev.to must be English.
         if _enforce_no_cjk_cyrillic(content):
@@ -344,6 +538,7 @@ Provide the complete article in Markdown format."""
                 + "\n\nFINAL CHECK: Output must be English only. No CJK/Cyrillic characters.",
                 system_prompt=system_prompt,
                 temperature=0.5,
+                task="devto_article",
             )
 
         # Extract title
@@ -401,6 +596,7 @@ Answer:"""
             system_prompt=system_prompt,
             temperature=0.4,
             max_tokens=max_tokens,
+            task=("qa_ar" if language.lower().startswith("ar") else "qa_en"),
         )
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -466,7 +662,11 @@ Answer:"""
 - أضف هاشتاقات مناسبة (2-3)"""
 
         post = await self._generate(
-            user_prompt, system_prompt, temperature=0.8, max_tokens=500
+            user_prompt,
+            system_prompt,
+            temperature=0.8,
+            max_tokens=500,
+            task="telegram_post",
         )
 
         if _enforce_no_cjk_cyrillic(post):
@@ -476,10 +676,13 @@ Answer:"""
                 system_prompt=system_prompt,
                 temperature=0.7,
                 max_tokens=500,
+                task="telegram_post",
             )
 
         if _enforce_no_cjk_cyrillic(post):
-            raise ValueError("LLM produced disallowed scripts (CJK/Cyrillic) for Telegram post")
+            raise ValueError(
+                "LLM produced disallowed scripts (CJK/Cyrillic) for Telegram post"
+            )
 
         # Ensure links are included
         if blogger_url and blogger_url not in post:
@@ -521,7 +724,11 @@ Answer:"""
         )
 
         out = await self._generate(
-            user_prompt, system_prompt=system_prompt, temperature=0.6, max_tokens=220
+            user_prompt,
+            system_prompt=system_prompt,
+            temperature=0.6,
+            max_tokens=220,
+            task="egy_summary",
         )
         out = out.strip()
         # Defensive cleanup: strip any accidental URLs/English remnants.
@@ -533,6 +740,7 @@ Answer:"""
                 system_prompt=system_prompt,
                 temperature=0.5,
                 max_tokens=220,
+                task="egy_summary",
             )
             out = re.sub(r"https?://\S+", "", out).strip()
         if _enforce_no_cjk_cyrillic(out):
@@ -562,11 +770,15 @@ Answer:"""
         user_prompt = (
             f"العنوان الأصلي: {article.title}\n\n"
             f"ملخص/سياق: {src}\n\n"
-            "اكتب عنوان واحد فقط بدون أي شرح." 
+            "اكتب عنوان واحد فقط بدون أي شرح."
         )
 
         out = await self._generate(
-            user_prompt, system_prompt=system_prompt, temperature=0.5, max_tokens=40
+            user_prompt,
+            system_prompt=system_prompt,
+            temperature=0.5,
+            max_tokens=40,
+            task="egy_title",
         )
         first = out.strip().splitlines()[0].strip()
         if _enforce_no_cjk_cyrillic(first):
@@ -604,7 +816,13 @@ No hashtags spam (max 3).
             f"Link to full Arabic article: {blog}\n"
             + (f"English version (Dev.to): {dev}\n" if dev else "")
         )
-        linkedin = await self._generate(li_user, system_prompt=li_system, temperature=0.6, max_tokens=450)
+        linkedin = await self._generate(
+            li_user,
+            system_prompt=li_system,
+            temperature=0.6,
+            max_tokens=450,
+            task="linkedin",
+        )
 
         # Short video script (TikTok/IG Reels/YT Shorts)
         vid_system = """أنت كاتب سكريبت فيديوهات قصيرة (30-45 ثانية) بالمصري.
@@ -616,11 +834,15 @@ No hashtags spam (max 3).
 مع [Visual cues] بسيطة.
 """
         vid_user = (
-            f"موضوع الفيديو: {article.title}\n\n"
-            f"ملخص: {src}\n\n"
-            f"اللينك: {blog}\n"
+            f"موضوع الفيديو: {article.title}\n\n" f"ملخص: {src}\n\n" f"اللينك: {blog}\n"
         )
-        video = await self._generate(vid_user, system_prompt=vid_system, temperature=0.7, max_tokens=500)
+        video = await self._generate(
+            vid_user,
+            system_prompt=vid_system,
+            temperature=0.7,
+            max_tokens=500,
+            task="video_script",
+        )
 
         # Reddit draft (English)
         rd_system = """You write Reddit posts for r/technology / r/artificial / r/programming.
@@ -633,7 +855,13 @@ Include the link only once.
             f"Source summary: {src}\n\n"
             f"Link: {blog}\n"
         )
-        reddit = await self._generate(rd_user, system_prompt=rd_system, temperature=0.6, max_tokens=450)
+        reddit = await self._generate(
+            rd_user,
+            system_prompt=rd_system,
+            temperature=0.6,
+            max_tokens=450,
+            task="reddit",
+        )
 
         return {
             "LinkedIn": linkedin.strip(),
@@ -688,7 +916,11 @@ Include the link only once.
 رابط المقال: {blogger_url or article.original_url}"""
 
         post = await self._generate(
-            user_prompt, system_prompt, temperature=0.85, max_tokens=600
+            user_prompt,
+            system_prompt,
+            temperature=0.85,
+            max_tokens=600,
+            task="facebook_post",
         )
 
         # Ensure link is included
@@ -729,7 +961,11 @@ Requirements:
 Provide only the prompt, nothing else."""
 
         return await self._generate(
-            user_prompt, system_prompt, temperature=0.7, max_tokens=200
+            user_prompt,
+            system_prompt,
+            temperature=0.7,
+            max_tokens=200,
+            task="image_prompt",
         )
 
     # ═══════════════════════════════════════════════════════════════════════════

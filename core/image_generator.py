@@ -24,7 +24,9 @@ import base64
 import random
 import math
 import logging
-from typing import Optional, Tuple, List
+import re
+import json
+from typing import Optional, Tuple, List, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
 
@@ -38,7 +40,9 @@ try:
     PILMOJI_AVAILABLE = True
 except ImportError:
     PILMOJI_AVAILABLE = False
-    logging.warning("⚠️ pilmoji not installed. Emojis may not render correctly.")
+    logging.warning(
+        "⚠️ pilmoji not installed. Falling back to system emoji font (if available)."
+    )
 
 # Arabic text support - CRITICAL for RTL languages
 try:
@@ -135,12 +139,24 @@ class DesignConfig:
     height: int = 630
 
     # Typography settings
-    title_font_size: int = 64
-    hook_font_size: int = 32
-    title_max_width: int = 1000  # Max width before wrapping
+    # Bigger by default for social readability.
+    title_font_size: int = 104
+    hook_font_size: int = 52
+    title_max_width: int = 980  # Max width before wrapping
+    max_title_lines: int = 3
+    max_hook_lines: int = 2
+    min_title_font_size: int = 64
+    min_hook_font_size: int = 34
 
     # Overlay settings
-    overlay_opacity: float = 0.4  # 0.0 to 1.0
+    overlay_opacity: float = 0.55  # 0.0 to 1.0
+
+    # Glass card settings (for templates)
+    card_opacity: int = 150  # 0..255
+    card_blur_radius: int = 10
+    card_radius: int = 28
+    card_padding_x: int = 54
+    card_padding_y: int = 44
 
     # Geometric elements
     num_circles: int = 8
@@ -153,6 +169,23 @@ class DesignConfig:
 
     # Gradient direction: 'diagonal', 'horizontal', 'vertical', 'radial'
     gradient_type: str = "diagonal"
+
+
+class ImageTemplate(Enum):
+    """High-level layout templates for OG images."""
+
+    HERO_CARD = "hero_card"  # big centered glass card
+    SPLIT_HERO = "split_hero"  # text panel + art area
+    MINIMAL_BOLD = "minimal_bold"  # minimal, huge headline
+
+
+@dataclass
+class TopicProfile:
+    palette: ColorPalette
+    gradient_type: str
+    template: ImageTemplate
+    badge_text: Optional[str] = None
+    badge_emoji: Optional[str] = None
 
 
 class ImageGenerator:
@@ -176,15 +209,322 @@ class ImageGenerator:
         Args:
             imgbb_api_key: API key for ImgBB upload service
         """
-        self.imgbb_api_key = imgbb_api_key or os.getenv(
-            "IMGBB_API_KEY", "c1633f2c05d08d77b999ead25c49295a"
-        )
+        # Never hardcode secrets; rely on env/.env.
+        self.imgbb_api_key = imgbb_api_key or (os.getenv("IMGBB_API_KEY") or "").strip()
         self.config = DesignConfig()
+
+        # Round-robin indexes for multi-key pools
+        self._groq_key_index = 0
+        self._nvidia_key_index = 0
 
         # Font paths - we'll try multiple locations
         self.font_paths = self._discover_fonts()
 
+        if not self.imgbb_api_key:
+            logger.warning("⚠️ IMGBB_API_KEY is not set; uploads will fail.")
+
         logger.info("🎨 Image Generator initialized")
+
+    def _env_flag(self, name: str, default: str = "0") -> bool:
+        return (os.getenv(name, default) or default).strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+
+    def _cover_resize(self, img: Image.Image, size: Tuple[int, int]) -> Image.Image:
+        """Resize an image to cover the target size (center-crop)."""
+        target_w, target_h = size
+        src = img.convert("RGBA")
+        src_w, src_h = src.size
+        if src_w <= 0 or src_h <= 0:
+            return src.resize(size, Image.Resampling.LANCZOS)
+
+        scale = max(target_w / src_w, target_h / src_h)
+        new_w = max(1, int(round(src_w * scale)))
+        new_h = max(1, int(round(src_h * scale)))
+        resized = src.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+        left = max(0, (new_w - target_w) // 2)
+        top = max(0, (new_h - target_h) // 2)
+        return resized.crop((left, top, left + target_w, top + target_h))
+
+    def _list_local_background_paths(self) -> List[str]:
+        base_dir = (os.getenv("LOCAL_BACKGROUNDS_DIR") or "assets/backgrounds").strip() or "assets/backgrounds"
+        if not os.path.isabs(base_dir):
+            base_dir = os.path.join(os.getcwd(), base_dir)
+        if not os.path.isdir(base_dir):
+            return []
+
+        exts = (".png", ".jpg", ".jpeg", ".webp")
+        out: List[str] = []
+        try:
+            for name in os.listdir(base_dir):
+                if name.lower().endswith(exts):
+                    out.append(os.path.join(base_dir, name))
+        except Exception:
+            return []
+
+        out.sort()
+        return out
+
+    def _pick_local_background_path(
+        self, profile: "TopicProfile", title: str, hook: Optional[str]
+    ) -> Optional[str]:
+        paths = self._list_local_background_paths()
+        if not paths:
+            return None
+
+        strategy = (os.getenv("LOCAL_BACKGROUNDS_STRATEGY") or "topic").strip().lower()
+        if strategy not in ("topic", "random"):
+            strategy = "topic"
+
+        if strategy == "random":
+            return random.choice(paths)
+
+        # Topic-aware selection: match by filename keywords.
+        text = f"{title or ''} {hook or ''}".lower()
+
+        def want(*tokens: str) -> bool:
+            return any(t and (t.lower() in text) for t in tokens)
+
+        preferred: List[str] = []
+
+        # Keyword-driven picks (Arabic + English)
+        if want("ai", "artificial", "machine", "ذكاء", "اصطناعي", "تعلم", "نموذج"):
+            preferred += ["ai_wave", "space_dust"]
+        if want("security", "cyber", "hack", "هكر", "اختراق", "أمن", "سيبر"):
+            preferred += ["tech_grid", "neon_cyber"]
+        if want("finance", "business", "startup", "استثمار", "مال", "تمويل", "شركات"):
+            preferred += ["finance_gold"]
+        if want("data", "analytics", "statistics", "بيانات", "تحليل"):
+            preferred += ["heatmap"]
+        if want("design", "ui", "ux", "تصميم"):
+            preferred += ["clean_minimal", "soft_pastel"]
+        if want("news", "breaking", "خبر", "عاجل", "تحديث"):
+            preferred += ["newsprint"]
+        if want("ocean", "sea", "بحر", "محيط"):
+            preferred += ["ocean_deep"]
+        if want("circuit", "chip", "gpu", "hardware", "شريحة", "معالج"):
+            preferred += ["circuit_board", "tech_grid"]
+        if want("engineer", "build", "code", "برمجة", "مطور", "هندسة"):
+            preferred += ["blueprint", "tech_grid"]
+
+        # Palette-driven fallback
+        try:
+            if profile.palette == ColorPalette.CYBER_PUNK:
+                preferred += ["neon_cyber"]
+            elif profile.palette == ColorPalette.TECH_BLUE:
+                preferred += ["tech_grid"]
+            elif profile.palette == ColorPalette.OCEAN_DEEP:
+                preferred += ["ocean_deep"]
+            elif profile.palette == ColorPalette.ROYAL_GOLD:
+                preferred += ["finance_gold"]
+            elif profile.palette == ColorPalette.SUNSET_GLOW:
+                preferred += ["gradient_sunset"]
+        except Exception:
+            pass
+
+        # Generic fallback (looks good for most posts)
+        preferred += ["tech_grid", "gradient_sunset", "dark_glass", "clean_minimal"]
+
+        for token in preferred:
+            for p in paths:
+                if token in os.path.basename(p).lower():
+                    return p
+
+        return random.choice(paths)
+
+    def _load_local_background(
+        self,
+        profile: "TopicProfile",
+        title: str,
+        hook: Optional[str],
+        size: Tuple[int, int],
+    ) -> Optional[Image.Image]:
+        path = self._pick_local_background_path(profile=profile, title=title, hook=hook)
+        if not path:
+            return None
+
+    def _has_emoji(self, text: str) -> bool:
+        """Best-effort emoji detection without extra deps."""
+        if not text:
+            return False
+        try:
+            # Main emoji blocks + some symbol blocks
+            return (
+                re.search(
+                    r"[\U0001F300-\U0001FAFF\u2600-\u26FF\u2700-\u27BF]",
+                    text,
+                )
+                is not None
+            )
+        except Exception:
+            return False
+
+    def _maybe_prefix_emoji(
+        self, title: str, hook: Optional[str], profile: "TopicProfile"
+    ) -> tuple[str, Optional[str]]:
+        enabled = self._env_flag("AUTO_EMOJI_TITLE", "1")
+        if not enabled:
+            return title, hook
+
+        clean_title = (title or "").strip()
+        if not clean_title:
+            return title, hook
+
+        # If the title already contains an emoji, do nothing.
+        if self._has_emoji(clean_title):
+            return clean_title, hook
+
+        # Prefer the inferred topic badge emoji.
+        emoji = (getattr(profile, "badge_emoji", None) or "").strip() or "✨"
+        return f"{emoji} {clean_title}", hook
+
+    def _add_watermark(self, image: Image.Image, text: str) -> Image.Image:
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+
+        text = (text or "").strip()
+        if not text:
+            return image
+
+        try:
+            opacity = float(
+                (os.getenv("IMAGE_WATERMARK_OPACITY") or "0.33").strip() or 0.33
+            )
+        except Exception:
+            opacity = 0.33
+        opacity = min(0.9, max(0.05, opacity))
+
+        try:
+            font_size = int(
+                (os.getenv("IMAGE_WATERMARK_FONT_SIZE") or "18").strip() or 18
+            )
+        except Exception:
+            font_size = 18
+        font_size = max(10, min(36, font_size))
+
+        font = self._get_font("hook", font_size)
+        overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay, "RGBA")
+
+        try:
+            bbox = font.getbbox(text)
+            text_w = int(bbox[2] - bbox[0])
+            text_h = int(bbox[3] - bbox[1])
+        except Exception:
+            text_w = max(10, int(len(text) * (font_size * 0.6)))
+            text_h = int(font_size * 1.2)
+
+        pad_x = 14
+        pad_y = 8
+        margin = 24
+
+        box_w = text_w + pad_x * 2
+        box_h = text_h + pad_y * 2
+
+        x1 = image.size[0] - box_w - margin
+        y1 = image.size[1] - box_h - margin
+        x2 = x1 + box_w
+        y2 = y1 + box_h
+
+        # Subtle pill background for readability
+        bg_alpha = int(255 * (opacity * 0.55))
+        txt_alpha = int(255 * opacity)
+
+        try:
+            draw.rounded_rectangle(
+                (x1, y1, x2, y2), radius=16, fill=(0, 0, 0, bg_alpha)
+            )
+        except Exception:
+            draw.rectangle((x1, y1, x2, y2), fill=(0, 0, 0, bg_alpha))
+
+        # Slight shadow
+        draw.text(
+            (x1 + pad_x + 1, y1 + pad_y + 1), text, font=font, fill=(0, 0, 0, txt_alpha)
+        )
+        draw.text(
+            (x1 + pad_x, y1 + pad_y), text, font=font, fill=(255, 255, 255, txt_alpha)
+        )
+
+        return Image.alpha_composite(image, overlay)
+        try:
+            bg = Image.open(path)
+            bg = self._cover_resize(bg, size)
+
+            blur = float((os.getenv("LOCAL_BACKGROUNDS_BLUR") or "0").strip() or 0)
+            if blur > 0:
+                bg = bg.filter(
+                    ImageFilter.GaussianBlur(radius=min(20.0, max(0.0, blur)))
+                )
+
+            # Optional dim to improve text readability (overlay already exists too)
+            dim = float((os.getenv("LOCAL_BACKGROUNDS_DIM") or "0").strip() or 0)
+            if dim > 0:
+                dim = min(0.8, max(0.0, dim))
+                overlay = Image.new("RGBA", size, (0, 0, 0, int(255 * dim)))
+                bg = Image.alpha_composite(bg, overlay)
+
+            return bg
+        except Exception as e:
+            logger.warning(f"Failed to load local background '{path}': {e}")
+            return None
+
+    def _get_key_pool(self, pool_var: str, key_prefix: str) -> List[str]:
+        """Return a stable, de-duplicated list of API keys.
+
+        Priority:
+        1) Comma-separated list in `pool_var`.
+        2) Single base key `{key_prefix}`.
+        3) Any env vars starting with `{key_prefix}` (e.g. *_2, *_DEEPSEEK).
+        """
+        keys: List[str] = []
+
+        raw_pool = (os.getenv(pool_var) or "").strip()
+        if raw_pool:
+            for part in raw_pool.split(","):
+                k = part.strip()
+                if k:
+                    keys.append(k)
+
+        base = (os.getenv(key_prefix) or "").strip()
+        if base:
+            keys.append(base)
+
+        # Collect any other keys that share the same prefix
+        try:
+            for env_k, env_v in os.environ.items():
+                if env_k == key_prefix:
+                    continue
+                if env_k.startswith(key_prefix) and (env_v or "").strip():
+                    keys.append(str(env_v).strip())
+        except Exception:
+            pass
+
+        # De-dup preserve order
+        out: List[str] = []
+        seen = set()
+        for k in keys:
+            if not k:
+                continue
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append(k)
+        return out
+
+    def _pick_from_pool(self, keys: List[str], index_attr: str) -> Optional[str]:
+        if not keys:
+            return None
+        try:
+            idx = int(getattr(self, index_attr, 0))
+        except Exception:
+            idx = 0
+        key = keys[idx % len(keys)]
+        setattr(self, index_attr, (idx + 1) % max(1, len(keys)))
+        return key
 
     def _discover_fonts(self) -> dict:
         """
@@ -213,6 +553,14 @@ class ImageGenerator:
                 "Tahoma.ttf",
                 "segoeui.ttf",
                 "NotoSansArabic-Regular.ttf",
+            ],
+            "emoji": [
+                # Windows
+                "seguiemj.ttf",
+                "seguiemoji.ttf",
+                "Segoe UI Emoji.ttf",
+                # Linux (common)
+                "NotoColorEmoji.ttf",
             ],
         }
 
@@ -244,6 +592,284 @@ class ImageGenerator:
         except Exception:
             # Ultimate fallback to default
             return ImageFont.load_default()
+
+    def _get_emoji_font(self, size: int) -> Optional[ImageFont.FreeTypeFont]:
+        """Best-effort emoji font (for when pilmoji isn't available)."""
+        try:
+            if "emoji" in self.font_paths:
+                return ImageFont.truetype(self.font_paths["emoji"], size)
+        except Exception:
+            return None
+
+        # Fallback: try common Windows font filename directly
+        try:
+            return ImageFont.truetype("seguiemj.ttf", size)
+        except Exception:
+            return None
+
+    def _iter_text_runs(self, text: str) -> List[Tuple[bool, str]]:
+        """Split text into runs: (is_emoji, run_text)."""
+        if not text:
+            return []
+
+        runs: List[Tuple[bool, str]] = []
+        current = [text[0]]
+        current_is_emoji = self._has_emoji(text[0])
+
+        for ch in text[1:]:
+            ch_is_emoji = self._has_emoji(ch)
+            if ch_is_emoji == current_is_emoji:
+                current.append(ch)
+                continue
+            runs.append((current_is_emoji, "".join(current)))
+            current = [ch]
+            current_is_emoji = ch_is_emoji
+
+        runs.append((current_is_emoji, "".join(current)))
+        return runs
+
+    def _analyze_topic(self, title: str, hook: Optional[str] = None) -> TopicProfile:
+        """Infer a topic profile (palette/template/badge) from title/hook."""
+        text = f"{title} {(hook or '')}".strip().lower()
+
+        buckets: Dict[str, Dict[str, Any]] = {
+            "ai": {
+                "keys": [
+                    "ai",
+                    "artificial intelligence",
+                    "llm",
+                    "gpt",
+                    "groq",
+                    "machine learning",
+                    "deep learning",
+                    "ذكاء",
+                    "اصطناعي",
+                    "تعلم آلي",
+                    "نماذج",
+                ],
+                "palette": ColorPalette.COSMIC_NIGHT,
+                "badge": ("AI", "🤖"),
+                "gradient": "radial",
+                "template": ImageTemplate.HERO_CARD,
+            },
+            "security": {
+                "keys": [
+                    "security",
+                    "vulnerability",
+                    "breach",
+                    "malware",
+                    "ransomware",
+                    "zero day",
+                    "cyber",
+                    "أمان",
+                    "اختراق",
+                    "ثغرة",
+                    "هجمات",
+                ],
+                "palette": ColorPalette.ROYAL_GOLD,
+                "badge": ("SEC", "🛡️"),
+                "gradient": "vertical",
+                "template": ImageTemplate.MINIMAL_BOLD,
+            },
+            "cloud": {
+                "keys": [
+                    "cloud",
+                    "aws",
+                    "azure",
+                    "gcp",
+                    "kubernetes",
+                    "docker",
+                    "سحابة",
+                    "كلاود",
+                    "حاويات",
+                ],
+                "palette": ColorPalette.TECH_BLUE,
+                "badge": ("CLOUD", "☁️"),
+                "gradient": "diagonal",
+                "template": ImageTemplate.SPLIT_HERO,
+            },
+            "dev": {
+                "keys": [
+                    "python",
+                    "javascript",
+                    "typescript",
+                    "react",
+                    "node",
+                    "api",
+                    "database",
+                    "sql",
+                    "برمجة",
+                    "كود",
+                    "بايثون",
+                    "جافاسكريبت",
+                    "تطوير",
+                ],
+                "palette": ColorPalette.CYBER_PUNK,
+                "badge": ("DEV", "💻"),
+                "gradient": "diagonal",
+                "template": ImageTemplate.SPLIT_HERO,
+            },
+            "business": {
+                "keys": [
+                    "business",
+                    "startup",
+                    "growth",
+                    "marketing",
+                    "strategy",
+                    "أعمال",
+                    "بيزنس",
+                    "ريادة",
+                    "تسويق",
+                    "استراتيجية",
+                ],
+                "palette": ColorPalette.SUNSET_GLOW,
+                "badge": ("BIZ", "📈"),
+                "gradient": "horizontal",
+                "template": ImageTemplate.HERO_CARD,
+            },
+        }
+
+        matched = None
+        for name, spec in buckets.items():
+            keys: List[str] = list(spec.get("keys") or [])
+            if any(k in text for k in keys):
+                matched = name
+                break
+
+        if matched is None:
+            return TopicProfile(
+                palette=ColorPalette.TECH_BLUE,
+                gradient_type="diagonal",
+                template=ImageTemplate.HERO_CARD,
+                badge_text="TECH",
+                badge_emoji="✨",
+            )
+
+        spec = buckets[matched]
+        badge = spec.get("badge") or (None, None)
+        badge_text, badge_emoji = badge
+        return TopicProfile(
+            palette=spec["palette"],  # type: ignore[index]
+            gradient_type=str(spec.get("gradient") or "diagonal"),
+            template=spec["template"],  # type: ignore[index]
+            badge_text=str(badge_text) if badge_text else None,
+            badge_emoji=str(badge_emoji) if badge_emoji else None,
+        )
+
+    def _measure_text_width(self, text: str, font: ImageFont.FreeTypeFont) -> int:
+        try:
+            bbox = font.getbbox(text)
+            return int(bbox[2] - bbox[0])
+        except Exception:
+            return int(len(text) * (getattr(font, "size", 16) * 0.6))
+
+    def _fit_font_and_wrap(
+        self,
+        text: str,
+        font_type: str,
+        start_size: int,
+        min_size: int,
+        max_width: int,
+        max_lines: int,
+    ) -> tuple[ImageFont.FreeTypeFont, List[str]]:
+        text = re.sub(r"\s+", " ", (text or "").strip())
+        if not text:
+            return self._get_font(font_type, start_size), []
+
+        size = start_size
+        while size >= min_size:
+            font = self._get_font(font_type, size)
+            lines = self._wrap_text(text, font, max_width)
+            if len(lines) <= max_lines:
+                return font, lines
+            size -= 6
+
+        font = self._get_font(font_type, min_size)
+        lines = self._wrap_text(text, font, max_width)
+        return font, lines[:max_lines]
+
+    def _rounded_rect(
+        self,
+        draw: ImageDraw.ImageDraw,
+        xy: Tuple[int, int, int, int],
+        radius: int,
+        fill: Tuple[int, int, int, int],
+        outline: Optional[Tuple[int, int, int, int]] = None,
+        width: int = 2,
+    ):
+        try:
+            draw.rounded_rectangle(
+                xy, radius=radius, fill=fill, outline=outline, width=width
+            )
+        except Exception:
+            draw.rectangle(xy, fill=fill, outline=outline, width=width)
+
+    def _add_glass_card(
+        self,
+        image: Image.Image,
+        box: Tuple[int, int, int, int],
+        accent_color: Tuple[int, int, int],
+    ) -> Image.Image:
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+
+        x1, y1, x2, y2 = box
+        region = image.crop((x1, y1, x2, y2))
+        region = region.filter(
+            ImageFilter.GaussianBlur(radius=self.config.card_blur_radius)
+        )
+        image.paste(region, (x1, y1))
+
+        overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        od = ImageDraw.Draw(overlay, "RGBA")
+        panel_fill = (0, 0, 0, int(self.config.card_opacity))
+        panel_outline = (*accent_color, 120)
+        self._rounded_rect(
+            od,
+            (x1, y1, x2, y2),
+            radius=self.config.card_radius,
+            fill=panel_fill,
+            outline=panel_outline,
+            width=2,
+        )
+        return Image.alpha_composite(image, overlay)
+
+    def _draw_badge(
+        self,
+        image: Image.Image,
+        text: str,
+        emoji: Optional[str],
+        x: int,
+        y: int,
+        accent_color: Tuple[int, int, int],
+    ) -> Image.Image:
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+        draw = ImageDraw.Draw(image, "RGBA")
+
+        badge_font = self._get_font("hook", 26)
+        badge_text = f"{(emoji + ' ') if emoji else ''}{text}".strip()
+        w = self._measure_text_width(self._process_arabic_text(badge_text), badge_font)
+        h = 34
+        pad_x = 16
+        pad_y = 8
+        box = (x, y, x + w + pad_x * 2, y + h + pad_y * 2)
+        self._rounded_rect(
+            draw,
+            box,
+            radius=18,
+            fill=(*accent_color, 90),
+            outline=(255, 255, 255, 120),
+            width=1,
+        )
+        return self._render_text_with_emoji(
+            image,
+            badge_text,
+            (x + pad_x, y + pad_y),
+            badge_font,
+            color=(255, 255, 255),
+            shadow=False,
+        )
 
     # ═══════════════════════════════════════════════════════════════════════════
     # 🌈 GRADIENT GENERATION - The foundation of our backgrounds
@@ -644,36 +1270,39 @@ class ImageGenerator:
         # 🔤 Process Arabic text for correct rendering
         processed_text = self._process_arabic_text(text)
 
-        if shadow:
-            # Add drop shadow for depth
-            shadow_offset = 3
-            shadow_color = (0, 0, 0)
+        draw = ImageDraw.Draw(image)
+        emoji_font = None if PILMOJI_AVAILABLE else self._get_emoji_font(getattr(font, "size", 24))
 
+        def draw_runs(at_x: int, at_y: int, fill: Tuple[int, int, int]):
             if PILMOJI_AVAILABLE:
                 with Pilmoji(image) as pilmoji:
-                    pilmoji.text(
-                        (x + shadow_offset, y + shadow_offset),
-                        processed_text,
-                        font=font,
-                        fill=shadow_color,
-                    )
-                    pilmoji.text((x, y), processed_text, font=font, fill=color)
-            else:
-                draw = ImageDraw.Draw(image)
-                draw.text(
-                    (x + shadow_offset, y + shadow_offset),
-                    processed_text,
-                    font=font,
-                    fill=shadow_color,
-                )
-                draw.text((x, y), processed_text, font=font, fill=color)
+                    pilmoji.text((at_x, at_y), processed_text, font=font, fill=fill)
+                return
+
+            # If no emoji font (or no emoji), draw normally.
+            if emoji_font is None or not self._has_emoji(processed_text):
+                draw.text((at_x, at_y), processed_text, font=font, fill=fill)
+                return
+
+            # Mixed rendering: base font for text, emoji font for emoji chars.
+            cx = at_x
+            for is_emoji, run_text in self._iter_text_runs(processed_text):
+                run_font = emoji_font if is_emoji else font
+                draw.text((cx, at_y), run_text, font=run_font, fill=fill)
+
+                try:
+                    bbox = run_font.getbbox(run_text)
+                    run_w = int(bbox[2] - bbox[0])
+                except Exception:
+                    run_w = int(len(run_text) * (getattr(run_font, "size", 16) * 0.6))
+                cx += run_w
+
+        if shadow:
+            shadow_offset = 3
+            draw_runs(x + shadow_offset, y + shadow_offset, (0, 0, 0))
+            draw_runs(x, y, color)
         else:
-            if PILMOJI_AVAILABLE:
-                with Pilmoji(image) as pilmoji:
-                    pilmoji.text((x, y), processed_text, font=font, fill=color)
-            else:
-                draw = ImageDraw.Draw(image)
-                draw.text((x, y), processed_text, font=font, fill=color)
+            draw_runs(x, y, color)
 
         return image
 
@@ -687,6 +1316,8 @@ class ImageGenerator:
         hook: Optional[str] = None,
         palette: Optional[ColorPalette] = None,
         gradient_type: Optional[str] = None,
+        template: Optional[ImageTemplate] = None,
+        background_override: Optional[Image.Image] = None,
     ) -> Image.Image:
         """
         Generate a professional social media image.
@@ -705,130 +1336,330 @@ class ImageGenerator:
         """
         logger.info(f"🎨 Generating image for: {title[:50]}...")
 
-        # Choose a random palette if not specified
+        profile = self._analyze_topic(title, hook)
+        title, hook = self._maybe_prefix_emoji(title=title, hook=hook, profile=profile)
+
         if palette is None:
-            palette = random.choice(list(ColorPalette))
+            palette = profile.palette
+        if gradient_type is None:
+            gradient_type = profile.gradient_type
 
         colors = palette.value
-        accent_color = colors[-1]  # Last color is always the accent
+        accent_color = colors[-1]
 
-        # Override gradient type if specified
         if gradient_type:
             self.config.gradient_type = gradient_type
 
+        if template is None:
+            template = profile.template
         size = (self.config.width, self.config.height)
 
-        # ═══════════════════════════════════════════════════════════════════
-        # LAYER 1: Base Gradient Background
-        # ═══════════════════════════════════════════════════════════════════
-        image = self._create_gradient(size, colors, self.config.gradient_type)
-        image = image.convert("RGBA")
+        if background_override is not None:
+            image = background_override.convert("RGBA")
+            if image.size != size:
+                image = image.resize(size, Image.Resampling.LANCZOS)
+        else:
+            use_local_bg = self._env_flag("LOCAL_BACKGROUNDS_ENABLED", "1")
+            local_bg = None
+            if use_local_bg:
+                local_bg = self._load_local_background(
+                    profile=profile, title=title, hook=hook, size=size
+                )
+            if local_bg is not None:
+                image = local_bg
+            else:
+                image = self._create_gradient(
+                    size, colors, self.config.gradient_type
+                ).convert("RGBA")
+                image = self._add_geometric_elements(image, accent_color)
 
-        # ═══════════════════════════════════════════════════════════════════
-        # LAYER 2: Geometric Art Elements
-        # ═══════════════════════════════════════════════════════════════════
-        image = self._add_geometric_elements(image, accent_color)
-
-        # ═══════════════════════════════════════════════════════════════════
-        # LAYER 3: Dark Overlay for Text Contrast
-        # ═══════════════════════════════════════════════════════════════════
+        # Contrast helpers (keep on even for AI backgrounds)
         image = self._add_overlay(image)
-
-        # ═══════════════════════════════════════════════════════════════════
-        # LAYER 4: Professional Border
-        # ═══════════════════════════════════════════════════════════════════
         image = self._add_border(image, accent_color)
 
-        # ═══════════════════════════════════════════════════════════════════
-        # LAYER 5: Typography - Title
-        # ═══════════════════════════════════════════════════════════════════
-        title_font = self._get_font("title", self.config.title_font_size)
+        draw = ImageDraw.Draw(image, "RGBA")
 
-        # Wrap the title text
-        title_lines = self._wrap_text(title, title_font, self.config.title_max_width)
+        margin = 70
 
-        # Calculate total text height
-        line_height = self.config.title_font_size + 10
-        total_title_height = len(title_lines) * line_height
+        def center_line_x(line: str, font: ImageFont.FreeTypeFont, x1: int, x2: int):
+            processed = self._process_arabic_text(line)
+            w = self._measure_text_width(processed, font)
+            return x1 + ((x2 - x1) - w) // 2
 
-        # Position title (centered, upper third of image)
-        if hook:
-            title_y = (self.config.height // 2) - total_title_height - 20
-        else:
-            title_y = (self.config.height - total_title_height) // 2
+        if template == ImageTemplate.SPLIT_HERO:
+            split_x = int(self.config.width * 0.62)
+            card_box = (margin, 90, split_x, self.config.height - 90)
+            image = self._add_glass_card(image, card_box, accent_color)
 
-        # Render each line of the title
-        for i, line in enumerate(title_lines):
-            # Calculate line width for centering
-            try:
-                bbox = title_font.getbbox(line)
-                line_width = bbox[2] - bbox[0]
-            except:
-                line_width = len(line) * (self.config.title_font_size * 0.6)
+            # Big accent circle on the right for visual balance
+            circle_overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            cd = ImageDraw.Draw(circle_overlay, "RGBA")
+            r = int(self.config.height * 0.62)
+            cx = int(self.config.width * 0.80)
+            cy = int(self.config.height * 0.52)
+            cd.ellipse(
+                (cx - r, cy - r, cx + r, cy + r),
+                fill=(*accent_color, 55),
+                outline=(255, 255, 255, 40),
+                width=3,
+            )
+            image = Image.alpha_composite(image, circle_overlay)
 
-            line_x = (self.config.width - line_width) // 2
-            line_y = title_y + (i * line_height)
+            card_x1, card_y1, card_x2, card_y2 = card_box
+            if profile.badge_text:
+                image = self._draw_badge(
+                    image,
+                    profile.badge_text,
+                    profile.badge_emoji,
+                    x=card_x1 + 28,
+                    y=card_y1 + 24,
+                    accent_color=accent_color,
+                )
 
-            image = self._render_text_with_emoji(
-                image,
-                line,
-                (line_x, line_y),
-                title_font,
-                color=(255, 255, 255),
-                shadow=True,
+            content_x1 = card_x1 + 40
+            content_x2 = card_x2 - 40
+            content_width = content_x2 - content_x1
+            title_font, title_lines = self._fit_font_and_wrap(
+                title,
+                font_type="title",
+                start_size=self.config.title_font_size,
+                min_size=self.config.min_title_font_size,
+                max_width=content_width,
+                max_lines=self.config.max_title_lines,
+            )
+            hook_font, hook_lines = self._fit_font_and_wrap(
+                hook or "",
+                font_type="hook",
+                start_size=self.config.hook_font_size,
+                min_size=self.config.min_hook_font_size,
+                max_width=content_width,
+                max_lines=self.config.max_hook_lines,
             )
 
-        # ═══════════════════════════════════════════════════════════════════
-        # LAYER 6: Typography - Hook/Subtitle
-        # ═══════════════════════════════════════════════════════════════════
-        if hook:
-            hook_font = self._get_font("hook", self.config.hook_font_size)
+            title_line_h = (
+                int(getattr(title_font, "size", self.config.title_font_size)) + 14
+            )
+            hook_line_h = (
+                int(getattr(hook_font, "size", self.config.hook_font_size)) + 10
+            )
 
-            # Wrap hook text
-            hook_lines = self._wrap_text(hook, hook_font, self.config.title_max_width)
+            block_h = (len(title_lines) * title_line_h) + (
+                (22 + len(hook_lines) * hook_line_h) if hook_lines else 0
+            )
+            start_y = card_y1 + (card_y2 - card_y1 - block_h) // 2
+            y = start_y
 
-            hook_line_height = self.config.hook_font_size + 8
-            hook_y = title_y + total_title_height + 30
-
-            for i, line in enumerate(hook_lines):
-                try:
-                    bbox = hook_font.getbbox(line)
-                    line_width = bbox[2] - bbox[0]
-                except:
-                    line_width = len(line) * (self.config.hook_font_size * 0.6)
-
-                line_x = (self.config.width - line_width) // 2
-                line_y = hook_y + (i * hook_line_height)
-
-                # Use accent color for hook
+            for line in title_lines:
+                x = center_line_x(line, title_font, content_x1, content_x2)
                 image = self._render_text_with_emoji(
                     image,
                     line,
-                    (line_x, line_y),
+                    (x, y),
+                    title_font,
+                    color=(255, 255, 255),
+                    shadow=True,
+                )
+                y += title_line_h
+
+            if hook_lines:
+                # Divider
+                y += 6
+                draw = ImageDraw.Draw(image, "RGBA")
+                draw.line(
+                    [(content_x1, y), (content_x2, y)],
+                    fill=(*accent_color, 140),
+                    width=4,
+                )
+                y += 18
+                for line in hook_lines:
+                    x = center_line_x(line, hook_font, content_x1, content_x2)
+                    image = self._render_text_with_emoji(
+                        image,
+                        line,
+                        (x, y),
+                        hook_font,
+                        color=accent_color,
+                        shadow=True,
+                    )
+                    y += hook_line_h
+
+        elif template == ImageTemplate.MINIMAL_BOLD:
+            if profile.badge_text:
+                image = self._draw_badge(
+                    image,
+                    profile.badge_text,
+                    profile.badge_emoji,
+                    x=margin,
+                    y=60,
+                    accent_color=accent_color,
+                )
+
+            content_x1 = margin
+            content_x2 = self.config.width - margin
+            content_width = content_x2 - content_x1
+
+            title_font, title_lines = self._fit_font_and_wrap(
+                title,
+                font_type="title",
+                start_size=self.config.title_font_size,
+                min_size=self.config.min_title_font_size,
+                max_width=content_width,
+                max_lines=self.config.max_title_lines,
+            )
+            hook_font, hook_lines = self._fit_font_and_wrap(
+                hook or "",
+                font_type="hook",
+                start_size=self.config.hook_font_size,
+                min_size=self.config.min_hook_font_size,
+                max_width=content_width,
+                max_lines=self.config.max_hook_lines,
+            )
+
+            title_line_h = (
+                int(getattr(title_font, "size", self.config.title_font_size)) + 16
+            )
+            hook_line_h = (
+                int(getattr(hook_font, "size", self.config.hook_font_size)) + 10
+            )
+            block_h = (len(title_lines) * title_line_h) + (
+                (26 + len(hook_lines) * hook_line_h) if hook_lines else 0
+            )
+
+            y = (self.config.height - block_h) // 2
+            for line in title_lines:
+                x = center_line_x(line, title_font, content_x1, content_x2)
+                image = self._render_text_with_emoji(
+                    image,
+                    line,
+                    (x, y),
+                    title_font,
+                    color=(255, 255, 255),
+                    shadow=True,
+                )
+                y += title_line_h
+
+            # Accent underline
+            y += 4
+            underline_w = int(content_width * 0.45)
+            ux1 = (self.config.width - underline_w) // 2
+            draw = ImageDraw.Draw(image, "RGBA")
+            draw.line(
+                [(ux1, y), (ux1 + underline_w, y)],
+                fill=(*accent_color, 190),
+                width=6,
+            )
+            y += 22
+
+            for line in hook_lines:
+                x = center_line_x(line, hook_font, content_x1, content_x2)
+                image = self._render_text_with_emoji(
+                    image,
+                    line,
+                    (x, y),
                     hook_font,
                     color=accent_color,
                     shadow=True,
                 )
+                y += hook_line_h
+
+        else:
+            # Default HERO_CARD
+            card_box = (
+                margin,
+                105,
+                self.config.width - margin,
+                self.config.height - 125,
+            )
+            image = self._add_glass_card(image, card_box, accent_color)
+
+            card_x1, card_y1, card_x2, card_y2 = card_box
+            if profile.badge_text:
+                image = self._draw_badge(
+                    image,
+                    profile.badge_text,
+                    profile.badge_emoji,
+                    x=card_x1 + 30,
+                    y=card_y1 + 26,
+                    accent_color=accent_color,
+                )
+
+            content_x1 = card_x1 + 44
+            content_x2 = card_x2 - 44
+            content_width = content_x2 - content_x1
+
+            title_font, title_lines = self._fit_font_and_wrap(
+                title,
+                font_type="title",
+                start_size=self.config.title_font_size,
+                min_size=self.config.min_title_font_size,
+                max_width=content_width,
+                max_lines=self.config.max_title_lines,
+            )
+            hook_font, hook_lines = self._fit_font_and_wrap(
+                hook or "",
+                font_type="hook",
+                start_size=self.config.hook_font_size,
+                min_size=self.config.min_hook_font_size,
+                max_width=content_width,
+                max_lines=self.config.max_hook_lines,
+            )
+
+            title_line_h = (
+                int(getattr(title_font, "size", self.config.title_font_size)) + 14
+            )
+            hook_line_h = (
+                int(getattr(hook_font, "size", self.config.hook_font_size)) + 10
+            )
+
+            block_h = (len(title_lines) * title_line_h) + (
+                (22 + len(hook_lines) * hook_line_h) if hook_lines else 0
+            )
+            y = card_y1 + (card_y2 - card_y1 - block_h) // 2
+
+            for line in title_lines:
+                x = center_line_x(line, title_font, content_x1, content_x2)
+                image = self._render_text_with_emoji(
+                    image,
+                    line,
+                    (x, y),
+                    title_font,
+                    color=(255, 255, 255),
+                    shadow=True,
+                )
+                y += title_line_h
+
+            if hook_lines:
+                y += 6
+                draw = ImageDraw.Draw(image, "RGBA")
+                draw.line(
+                    [(content_x1, y), (content_x2, y)],
+                    fill=(*accent_color, 140),
+                    width=4,
+                )
+                y += 18
+
+                for line in hook_lines:
+                    x = center_line_x(line, hook_font, content_x1, content_x2)
+                    image = self._render_text_with_emoji(
+                        image,
+                        line,
+                        (x, y),
+                        hook_font,
+                        color=accent_color,
+                        shadow=True,
+                    )
+                    y += hook_line_h
 
         # ═══════════════════════════════════════════════════════════════════
         # LAYER 7: Branding (Optional watermark)
         # ═══════════════════════════════════════════════════════════════════
-        small_font = self._get_font("hook", 18)
-        brand_text = "ContentOrbit"
-
-        try:
-            bbox = small_font.getbbox(brand_text)
-            brand_width = bbox[2] - bbox[0]
-        except:
-            brand_width = len(brand_text) * 10
-
-        brand_x = self.config.width - brand_width - 30
-        brand_y = self.config.height - 40
-
-        draw = ImageDraw.Draw(image, "RGBA")
-        draw.text(
-            (brand_x, brand_y), brand_text, font=small_font, fill=(255, 255, 255, 80)
-        )
+        watermark_enabled = self._env_flag("IMAGE_WATERMARK_ENABLED", "1")
+        if watermark_enabled:
+            watermark_text = (
+                os.getenv("IMAGE_WATERMARK_TEXT") or "Mohamed Shaban"
+            ).strip()
+            if watermark_text:
+                image = self._add_watermark(image, watermark_text)
 
         # Convert back to RGB for saving
         final_image = Image.new("RGB", image.size, (0, 0, 0))
@@ -912,6 +1743,424 @@ class ImageGenerator:
         """
         image = self.generate(title, hook, palette)
         return self.upload_to_imgbb(image)
+
+    def generate_variants(
+        self,
+        title: str,
+        hook: Optional[str] = None,
+        count: int = 3,
+        palettes: Optional[List[ColorPalette]] = None,
+    ) -> List[Image.Image]:
+        """Generate multiple design variants for the same post."""
+        count = max(1, min(int(count), 6))
+        profile = self._analyze_topic(title, hook)
+
+        templates = [
+            profile.template,
+            ImageTemplate.HERO_CARD,
+            ImageTemplate.MINIMAL_BOLD,
+        ]
+        gradients = [profile.gradient_type, "diagonal", "radial", "vertical"]
+
+        if palettes is None:
+            palettes = [
+                profile.palette,
+                ColorPalette.COSMIC_NIGHT,
+                ColorPalette.SUNSET_GLOW,
+            ]
+
+        images: List[Image.Image] = []
+        for i in range(count):
+            template = templates[i % len(templates)]
+            gradient = gradients[i % len(gradients)]
+            palette = palettes[i % len(palettes)]
+
+            images.append(
+                self.generate(
+                    title=title,
+                    hook=hook,
+                    palette=palette,
+                    gradient_type=gradient,
+                    template=template,
+                )
+            )
+
+        # Optionally add 1 AI-generated background variant (only if we have 2+ images requested).
+        if count >= 2:
+            ai_variant = self._maybe_generate_ai_variant(title=title, hook=hook)
+            if ai_variant is not None:
+                images.append(ai_variant)
+
+        # Keep list bounded (caller may request up to 6)
+        return images[: max(1, min(count, 6))]
+
+    def _maybe_generate_ai_variant(
+        self, title: str, hook: Optional[str]
+    ) -> Optional[Image.Image]:
+        """Best-effort AI image variant.
+
+        Strategy:
+        - Build a strong image prompt (optionally via Groq).
+        - Generate an AI background via NVIDIA Flux.1-Kontext (img2img on a base gradient).
+        - Render our template + Arabic/emoji-safe typography on top.
+
+        If anything fails, returns None and the pipeline continues with programmatic variants.
+        """
+        provider = (os.getenv("IMAGE_AI_PROVIDER", "auto") or "auto").strip().lower()
+        enabled = (os.getenv("ENABLE_IMAGE_AI", "0") or "0").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+        if not enabled:
+            return None
+
+        if provider not in ("auto", "nvidia", "none"):
+            provider = "auto"
+        if provider == "none":
+            return None
+
+        nvidia_key = (os.getenv("NVIDIA_API_KEY") or "").strip()
+        if provider in ("auto", "nvidia") and not nvidia_key:
+            return None
+
+        try:
+            profile = self._analyze_topic(title, hook)
+            palette = profile.palette
+            gradient_type = profile.gradient_type
+            template = profile.template
+            colors = palette.value
+            accent_color = colors[-1]
+
+            # 1) Base background (keeps aspect ratio + some brand colors)
+            base_bg = self._create_gradient(
+                (self.config.width, self.config.height),
+                colors,
+                gradient_type,
+            ).convert("RGBA")
+            base_bg = self._add_geometric_elements(base_bg, accent_color)
+
+            # 2) Build prompt (Groq if available; otherwise heuristic)
+            prompt = self._build_ai_image_prompt(title=title, hook=hook)
+
+            # 3) Generate AI background
+            ai_bg = self._nvidia_flux_kontext_edit(
+                image=base_bg,
+                prompt=prompt,
+            )
+            if ai_bg is None:
+                return None
+
+            # 4) Render text on top
+            return self.generate(
+                title=title,
+                hook=hook,
+                palette=palette,
+                gradient_type=gradient_type,
+                template=template,
+                background_override=ai_bg,
+            )
+        except Exception as e:
+            logger.warning(f"AI image variant failed (fallback to programmatic): {e}")
+            return None
+
+    def _build_ai_image_prompt(self, title: str, hook: Optional[str]) -> str:
+        """Create a prompt for image generation.
+
+        Order:
+        1) Groq (if enabled + keys available)
+        2) Gemini (Google AI Studio) as a free-ish fallback (text only)
+        3) Heuristic fallback prompt
+        """
+        base = {
+            "title": (title or "").strip(),
+            "hook": (hook or "").strip(),
+        }
+
+        # Heuristic fallback prompt (English tends to work best for image models)
+        fallback = (
+            "Create a high-quality cinematic illustration background for a tech social post. "
+            "No text, no letters, no watermark, no logo. "
+            "Modern, clean, high contrast, professional. "
+            f"Theme: {base['title']}. "
+        )
+        if base["hook"]:
+            fallback += f"Context: {base['hook']}. "
+
+        disable_groq = os.getenv(
+            "DISABLE_GROQ_FOR_IMAGE_PROMPT", "0"
+        ).strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+
+        sys = (
+            "You write short, high-quality prompts for image generation. "
+            "Output ONLY the prompt. No quotes. No markdown. "
+            "Rules: no text/letters/logos/watermarks in the image. "
+            "Prefer cinematic lighting and modern tech aesthetics."
+        )
+        user = (
+            f"Title: {base['title']}\n"
+            f"Hook: {base['hook']}\n\n"
+            "Write ONE concise prompt (max 60 words) for a background illustration."
+        )
+
+        # 1) Groq prompt-writing (pool-aware)
+        if not disable_groq:
+            groq_keys = self._get_key_pool("GROQ_API_KEYS", "GROQ_API_KEY")
+            model = (
+                (os.getenv("GROQ_MODEL_IMAGE_PROMPT") or "").strip()
+                or (os.getenv("GROQ_IMAGE_PROMPT_MODEL") or "").strip()
+                or "llama-3.1-8b-instant"
+            )
+
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": sys},
+                    {"role": "user", "content": user},
+                ],
+                "temperature": 0.7,
+                "max_tokens": 160,
+            }
+
+            # Try each key once (smart fallback when credits/rate-limit hit)
+            for _ in range(max(1, len(groq_keys))):
+                groq_key = self._pick_from_pool(groq_keys, "_groq_key_index")
+                if not groq_key:
+                    break
+                try:
+                    headers = {
+                        "Authorization": f"Bearer {groq_key}",
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    }
+                    r = requests.post(url, headers=headers, json=payload, timeout=20)
+                    if r.status_code in (401, 403, 429):
+                        continue
+                    r.raise_for_status()
+                    data = r.json()
+                    content = (
+                        data.get("choices", [{}])[0]
+                        .get("message", {})
+                        .get("content", "")
+                        .strip()
+                    )
+                    if content:
+                        return content.strip().strip('"').strip("'")
+                except Exception:
+                    continue
+
+        # 2) Gemini fallback (Google AI Studio) - prompt-writing only
+        gemini_prompt = self._gemini_prompt(sys_prompt=sys, user_prompt=user)
+        if gemini_prompt:
+            return gemini_prompt
+
+        return fallback
+
+    def _gemini_prompt(self, sys_prompt: str, user_prompt: str) -> Optional[str]:
+        """Generate a short image prompt via Google AI Studio (Gemini).
+
+        This is used as a fallback when Groq is unavailable/disabled.
+        """
+        api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
+        if not api_key:
+            return None
+
+        model = (os.getenv("GEMINI_PROMPT_MODEL") or "gemini-1.5-flash").strip()
+
+        # v1beta Generative Language API
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        params = {"key": api_key}
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": f"System: {sys_prompt}\n\nUser: {user_prompt}\n\nOutput ONLY the prompt."
+                        }
+                    ],
+                }
+            ],
+            "generationConfig": {"temperature": 0.7, "maxOutputTokens": 160},
+        }
+
+        try:
+            r = requests.post(url, params=params, json=payload, timeout=20)
+            if r.status_code in (401, 403, 429):
+                return None
+            r.raise_for_status()
+            data = r.json()
+            cands = data.get("candidates") or []
+            if not cands:
+                return None
+            parts = (
+                cands[0].get("content", {}).get("parts")
+                if isinstance(cands[0], dict)
+                else None
+            )
+            if not parts:
+                return None
+            text = (parts[0].get("text") or "").strip()
+            if not text:
+                return None
+            return text.strip().strip('"').strip("'")
+        except Exception:
+            return None
+
+    def _nvidia_flux_kontext_edit(
+        self,
+        image: Image.Image,
+        prompt: str,
+    ) -> Optional[Image.Image]:
+        """Call NVIDIA GenAI Flux.1-Kontext (img2img edit) and return a PIL image."""
+        api_keys = self._get_key_pool("NVIDIA_API_KEYS", "NVIDIA_API_KEY")
+        if not api_keys:
+            return None
+
+        invoke_url = (
+            os.getenv("NVIDIA_FLUX_KONTEXT_URL")
+            or "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-kontext-dev"
+        ).strip()
+
+        # NOTE: NVIDIA NIM Preview APIs may only accept predefined images via example_id.
+        # If enabled, we ignore the provided image and use the example image instead.
+        use_example_id = (
+            os.getenv("NVIDIA_NIM_USE_EXAMPLE_ID") or ""
+        ).strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if use_example_id:
+            example_id_raw = (
+                os.getenv("NVIDIA_KONTEXT_EXAMPLE_ID")
+                or os.getenv("NVIDIA_EXAMPLE_IMAGE_ID")
+                or "0"
+            ).strip()
+            try:
+                example_id = int(example_id_raw)
+            except Exception:
+                example_id = 0
+            data_url = f"data:image/png;example_id,{example_id}"
+        else:
+            # Encode input image as data URL
+            buf = io.BytesIO()
+            image.convert("RGB").save(buf, format="PNG", optimize=True)
+            b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+            data_url = f"data:image/png;base64,{b64}"
+
+        steps = int((os.getenv("NVIDIA_IMAGE_STEPS") or "28").strip() or 28)
+        cfg = float((os.getenv("NVIDIA_CFG_SCALE") or "3.5").strip() or 3.5)
+        seed_raw = (os.getenv("NVIDIA_IMAGE_SEED") or "0").strip()
+        try:
+            seed = int(seed_raw)
+        except Exception:
+            seed = 0
+
+        payload = {
+            "prompt": prompt,
+            "image": data_url,
+            "aspect_ratio": "match_input_image",
+            "steps": steps,
+            "cfg_scale": cfg,
+            "seed": seed,
+        }
+        base_headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        last_err: Optional[Exception] = None
+        for _ in range(max(1, len(api_keys))):
+            api_key = self._pick_from_pool(api_keys, "_nvidia_key_index")
+            if not api_key:
+                break
+            headers = {**base_headers, "Authorization": f"Bearer {api_key}"}
+
+            try:
+                r = requests.post(invoke_url, headers=headers, json=payload, timeout=60)
+                if r.status_code in (401, 403, 429):
+                    continue
+                r.raise_for_status()
+                data = r.json()
+
+                # Try to find an image field in common shapes
+                candidate: Optional[str] = None
+                if isinstance(data, dict):
+                    artifacts = data.get("artifacts")
+                    if isinstance(artifacts, list) and artifacts:
+                        a0 = artifacts[0]
+                        if isinstance(a0, dict):
+                            candidate = (
+                                a0.get("base64")
+                                or a0.get("b64_json")
+                                or a0.get("image")
+                                or a0.get("data")
+                            )
+
+                    for key in ("image", "output", "result"):
+                        v = data.get(key)
+                        if isinstance(v, str) and v:
+                            candidate = v
+                            break
+                    if candidate is None:
+                        imgs = data.get("images")
+                        if isinstance(imgs, list) and imgs:
+                            v0 = imgs[0]
+                            if isinstance(v0, str):
+                                candidate = v0
+                            elif isinstance(v0, dict):
+                                candidate = (
+                                    v0.get("image")
+                                    or v0.get("b64_json")
+                                    or v0.get("base64")
+                                    or v0.get("data")
+                                )
+
+                if not candidate:
+                    logger.warning(
+                        f"NVIDIA response missing image field. keys={list(data.keys()) if isinstance(data, dict) else type(data)}"
+                    )
+                    return None
+
+                # Support data URLs and raw base64
+                if candidate.startswith("data:image"):
+                    candidate = candidate.split(",", 1)[1]
+
+                img_bytes = base64.b64decode(candidate)
+                out = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+                return out
+
+            except Exception as e:
+                last_err = e
+                continue
+
+        if last_err is not None:
+            logger.warning(f"NVIDIA image generation failed: {last_err}")
+        return None
+
+    def generate_variants_and_upload(
+        self,
+        title: str,
+        hook: Optional[str] = None,
+        count: int = 3,
+        palettes: Optional[List[ColorPalette]] = None,
+    ) -> List[str]:
+        """Generate multiple images and upload each to ImgBB; returns list of URLs."""
+        urls: List[str] = []
+        for image in self.generate_variants(
+            title=title, hook=hook, count=count, palettes=palettes
+        ):
+            url = self.upload_to_imgbb(image)
+            if url:
+                urls.append(url)
+        return urls
 
     def save_local(
         self, image: Image.Image, filename: str = "generated_image.png"
