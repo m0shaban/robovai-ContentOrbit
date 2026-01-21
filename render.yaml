@@ -79,10 +79,9 @@ services:
         value: '18'
       - key: AUTO_EMOJI_TITLE
         value: '1'
-    disk:
-      name: contentorbit-data
-      mountPath: /app/data
-      sizeGB: 1
+
+# NOTE: Render free tier does not support persistent disks.
+# Data under ./data will be ephemeral on free tier.
 
 # Note: Dashboard should be deployed separately on Streamlit Community Cloud
 # See deploy/streamlit/README.md for instructions
