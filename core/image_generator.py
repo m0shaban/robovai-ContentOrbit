@@ -144,10 +144,19 @@ class DesignConfig:
     title_font_size: int = 104
     hook_font_size: int = 52
     title_max_width: int = 980  # Max width before wrapping
-    max_title_lines: int = 3
-    max_hook_lines: int = 2
+    # Default layout target: 1-2 title lines + 0-1 hook line (social friendly)
+    max_title_lines: int = 2
+    max_hook_lines: int = 1
     min_title_font_size: int = 64
     min_hook_font_size: int = 34
+
+    # Text effects (readability on any background)
+    text_shadow: bool = True
+    text_shadow_offset: int = 3
+    text_shadow_alpha: int = 220
+    text_outline_width: int = 3
+    text_outline_alpha: int = 220
+    text_align: str = "center"  # center|right
 
     # Overlay settings
     overlay_opacity: float = 0.55  # 0.0 to 1.0
@@ -203,7 +212,7 @@ class ImageGenerator:
     4. Subtle geometric art for visual interest
     """
 
-    def __init__(self, imgbb_api_key: Optional[str] = None):
+    def __init__(self, imgbb_api_key: Optional[str] = None, config: Optional[object] = None):
         """
         Initialize the image generator.
 
@@ -214,16 +223,62 @@ class ImageGenerator:
         self.imgbb_api_key = imgbb_api_key or (os.getenv("IMGBB_API_KEY") or "").strip()
         self.config = DesignConfig()
 
+        # Optional config-driven overrides (dashboard/config.json)
+        self._app_config = getattr(config, "app_config", None) if config is not None else None
+        self._poster_cfg = getattr(self._app_config, "poster", None) if self._app_config is not None else None
+
         # Round-robin indexes for multi-key pools
         self._groq_key_index = 0
 
         # Font paths - we'll try multiple locations
         self.font_paths = self._discover_fonts()
 
+        # Apply poster overrides after fonts are discovered
+        self._apply_poster_overrides()
+
         if not self.imgbb_api_key:
             logger.warning("⚠️ IMGBB_API_KEY is not set; uploads will fail.")
 
         logger.info("🎨 Image Generator initialized")
+
+    def _apply_poster_overrides(self) -> None:
+        """Apply dashboard-driven poster overrides onto the internal DesignConfig."""
+        if self._poster_cfg is None:
+            return
+
+        try:
+            if hasattr(self._poster_cfg, "enabled") and not bool(getattr(self._poster_cfg, "enabled")):
+                return
+        except Exception:
+            return
+
+        for attr in (
+            "title_font_size",
+            "hook_font_size",
+            "min_title_font_size",
+            "min_hook_font_size",
+            "max_title_lines",
+            "max_hook_lines",
+            "overlay_opacity",
+            "card_opacity",
+            "border_width",
+            "border_glow",
+            "text_shadow",
+            "text_shadow_offset",
+            "text_shadow_alpha",
+            "text_outline_width",
+            "text_outline_alpha",
+            "text_align",
+        ):
+            if not hasattr(self._poster_cfg, attr):
+                continue
+            v = getattr(self._poster_cfg, attr)
+            if v is None:
+                continue
+            try:
+                setattr(self.config, attr, v)
+            except Exception:
+                continue
 
     def _env_flag(self, name: str, default: str = "0") -> bool:
         return (os.getenv(name, default) or default).strip().lower() in (
@@ -427,6 +482,25 @@ class ImageGenerator:
         if not path:
             return None
 
+        try:
+            bg = Image.open(path)
+            bg = self._cover_resize(bg, size)
+
+            blur = float((os.getenv("LOCAL_BACKGROUNDS_BLUR") or "0").strip() or 0)
+            if blur > 0:
+                bg = bg.filter(ImageFilter.GaussianBlur(radius=min(20.0, max(0.0, blur))))
+
+            dim = float((os.getenv("LOCAL_BACKGROUNDS_DIM") or "0").strip() or 0)
+            if dim > 0:
+                dim = min(0.8, max(0.0, dim))
+                overlay = Image.new("RGBA", size, (0, 0, 0, int(255 * dim)))
+                bg = Image.alpha_composite(bg.convert("RGBA"), overlay)
+
+            return bg.convert("RGBA")
+        except Exception as e:
+            logger.warning(f"Failed to load local background '{path}': {e}")
+            return None
+
     def _has_emoji(self, text: str) -> bool:
         """Best-effort emoji detection without extra deps."""
         if not text:
@@ -446,7 +520,8 @@ class ImageGenerator:
     def _maybe_prefix_emoji(
         self, title: str, hook: Optional[str], profile: "TopicProfile"
     ) -> tuple[str, Optional[str]]:
-        enabled = self._env_flag("AUTO_EMOJI_TITLE", "1")
+        cfg_enabled = getattr(self._poster_cfg, "auto_emoji_title", None) if self._poster_cfg is not None else None
+        enabled = bool(cfg_enabled) if cfg_enabled is not None else self._env_flag("AUTO_EMOJI_TITLE", "1")
         if not enabled:
             return title, hook
 
@@ -470,28 +545,27 @@ class ImageGenerator:
         if not text:
             return image
 
+        cfg_opacity = getattr(self._poster_cfg, "watermark_opacity", None) if self._poster_cfg is not None else None
         try:
-            opacity = float(
-                (os.getenv("IMAGE_WATERMARK_OPACITY") or "0.33").strip() or 0.33
-            )
+            opacity = float(cfg_opacity) if cfg_opacity is not None else float((os.getenv("IMAGE_WATERMARK_OPACITY") or "0.33").strip() or 0.33)
         except Exception:
             opacity = 0.33
         opacity = min(0.9, max(0.05, opacity))
 
+        cfg_size = getattr(self._poster_cfg, "watermark_font_size", None) if self._poster_cfg is not None else None
         try:
-            font_size = int(
-                (os.getenv("IMAGE_WATERMARK_FONT_SIZE") or "18").strip() or 18
-            )
+            font_size = int(cfg_size) if cfg_size is not None else int((os.getenv("IMAGE_WATERMARK_FONT_SIZE") or "18").strip() or 18)
         except Exception:
             font_size = 18
         font_size = max(10, min(36, font_size))
 
-        font = self._get_font("hook", font_size)
+        processed = self._process_arabic_text(text)
+        font = self._get_font("arabic" if self._contains_arabic(text) else "hook", font_size)
         overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay, "RGBA")
 
         try:
-            bbox = font.getbbox(text)
+            bbox = font.getbbox(processed)
             text_w = int(bbox[2] - bbox[0])
             text_h = int(bbox[3] - bbox[1])
         except Exception:
@@ -522,35 +596,10 @@ class ImageGenerator:
             draw.rectangle((x1, y1, x2, y2), fill=(0, 0, 0, bg_alpha))
 
         # Slight shadow
-        draw.text(
-            (x1 + pad_x + 1, y1 + pad_y + 1), text, font=font, fill=(0, 0, 0, txt_alpha)
-        )
-        draw.text(
-            (x1 + pad_x, y1 + pad_y), text, font=font, fill=(255, 255, 255, txt_alpha)
-        )
+        draw.text((x1 + pad_x + 1, y1 + pad_y + 1), processed, font=font, fill=(0, 0, 0, txt_alpha))
+        draw.text((x1 + pad_x, y1 + pad_y), processed, font=font, fill=(255, 255, 255, txt_alpha))
 
         return Image.alpha_composite(image, overlay)
-        try:
-            bg = Image.open(path)
-            bg = self._cover_resize(bg, size)
-
-            blur = float((os.getenv("LOCAL_BACKGROUNDS_BLUR") or "0").strip() or 0)
-            if blur > 0:
-                bg = bg.filter(
-                    ImageFilter.GaussianBlur(radius=min(20.0, max(0.0, blur)))
-                )
-
-            # Optional dim to improve text readability (overlay already exists too)
-            dim = float((os.getenv("LOCAL_BACKGROUNDS_DIM") or "0").strip() or 0)
-            if dim > 0:
-                dim = min(0.8, max(0.0, dim))
-                overlay = Image.new("RGBA", size, (0, 0, 0, int(255 * dim)))
-                bg = Image.alpha_composite(bg, overlay)
-
-            return bg
-        except Exception as e:
-            logger.warning(f"Failed to load local background '{path}': {e}")
-            return None
 
     def _get_key_pool(self, pool_var: str, key_prefix: str) -> List[str]:
         """Return a stable, de-duplicated list of API keys.
@@ -612,10 +661,13 @@ class ImageGenerator:
         Returns a dictionary of font types to paths.
         """
         # Common font locations
+        pil_fonts_dir = os.path.join(os.path.dirname(ImageFont.__file__), "fonts")
         font_dirs = [
             "C:/Windows/Fonts",
             "/usr/share/fonts",
+            "/usr/local/share/fonts",
             "/System/Library/Fonts",
+            pil_fonts_dir,
             os.path.join(os.path.dirname(__file__), "..", "assets", "fonts"),
         ]
 
@@ -624,22 +676,37 @@ class ImageGenerator:
             "title": [
                 "arialbd.ttf",
                 "Arial Bold.ttf",
+                "segoeuib.ttf",
                 "Roboto-Bold.ttf",
                 "DejaVuSans-Bold.ttf",
+                "LiberationSans-Bold.ttf",
+                "NotoSans-Bold.ttf",
             ],
-            "hook": ["arial.ttf", "Arial.ttf", "Roboto-Regular.ttf", "DejaVuSans.ttf"],
-            "arabic": [
+            "hook": [
                 "arial.ttf",
+                "Arial.ttf",
+                "segoeui.ttf",
+                "Roboto-Regular.ttf",
+                "DejaVuSans.ttf",
+                "LiberationSans-Regular.ttf",
+                "NotoSans-Regular.ttf",
+            ],
+            "arabic": [
+                "NotoSansArabic-Regular.ttf",
+                "NotoNaskhArabic-Regular.ttf",
+                "NotoKufiArabic-Regular.ttf",
+                "NotoSansArabicUI-Regular.ttf",
+                "DejaVuSans.ttf",
                 "Tahoma.ttf",
                 "segoeui.ttf",
-                "NotoSansArabic-Regular.ttf",
+                "arial.ttf",
             ],
             "emoji": [
                 # Windows
                 "seguiemj.ttf",
                 "seguiemoji.ttf",
                 "Segoe UI Emoji.ttf",
-                # Linux (common)
+                # Linux
                 "NotoColorEmoji.ttf",
             ],
         }
@@ -660,18 +727,56 @@ class ImageGenerator:
 
         return found_fonts
 
-    def _get_font(self, font_type: str, size: int) -> ImageFont.FreeTypeFont:
+    def _get_font(
+        self, font_type: str, size: int
+    ) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         """
         Get a font object, with fallback to default if not found.
         """
-        try:
-            if font_type in self.font_paths:
-                return ImageFont.truetype(self.font_paths[font_type], size)
-            # Fallback to arial
-            return ImageFont.truetype("arial.ttf", size)
-        except Exception:
-            # Ultimate fallback to default
-            return ImageFont.load_default()
+        def try_load(path: str) -> Optional[ImageFont.FreeTypeFont]:
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                return None
+
+        # 1) Discovered fonts by absolute path
+        if font_type in self.font_paths:
+            f = try_load(self.font_paths[font_type])
+            if f is not None:
+                return f
+
+        # 2) Pillow bundled DejaVu fonts (reliable cross-platform fallback)
+        pil_fonts_dir = os.path.join(os.path.dirname(ImageFont.__file__), "fonts")
+        candidate_paths: List[str] = []
+
+        if font_type == "title":
+            candidate_paths.append(os.path.join(pil_fonts_dir, "DejaVuSans-Bold.ttf"))
+        else:
+            candidate_paths.append(os.path.join(pil_fonts_dir, "DejaVuSans.ttf"))
+
+        # 3) Try common system font filenames by name (relies on fontconfig paths)
+        if font_type == "arabic":
+            candidate_paths += [
+                "NotoSansArabic-Regular.ttf",
+                "NotoNaskhArabic-Regular.ttf",
+                "DejaVuSans.ttf",
+            ]
+        else:
+            candidate_paths += [
+                "DejaVuSans.ttf",
+                "DejaVuSans-Bold.ttf",
+                "LiberationSans-Regular.ttf",
+                "LiberationSans-Bold.ttf",
+                "arial.ttf",
+            ]
+
+        for p in candidate_paths:
+            f = try_load(p)
+            if f is not None:
+                return f
+
+        # Ultimate fallback (small bitmap font)
+        return ImageFont.load_default()
 
     def _get_emoji_font(self, size: int) -> Optional[ImageFont.FreeTypeFont]:
         """Best-effort emoji font (for when pilmoji isn't available)."""
@@ -836,7 +941,9 @@ class ImageGenerator:
             badge_emoji=str(badge_emoji) if badge_emoji else None,
         )
 
-    def _measure_text_width(self, text: str, font: ImageFont.FreeTypeFont) -> int:
+    def _measure_text_width(
+        self, text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont
+    ) -> int:
         try:
             bbox = font.getbbox(text)
             return int(bbox[2] - bbox[0])
@@ -851,20 +958,23 @@ class ImageGenerator:
         min_size: int,
         max_width: int,
         max_lines: int,
-    ) -> tuple[ImageFont.FreeTypeFont, List[str]]:
+    ) -> tuple[ImageFont.FreeTypeFont | ImageFont.ImageFont, List[str]]:
         text = re.sub(r"\s+", " ", (text or "").strip())
         if not text:
             return self._get_font(font_type, start_size), []
 
+        # Choose an Arabic-capable font when needed.
+        effective_font_type = "arabic" if self._contains_arabic(text) else font_type
+
         size = start_size
         while size >= min_size:
-            font = self._get_font(font_type, size)
+            font = self._get_font(effective_font_type, size)
             lines = self._wrap_text(text, font, max_width)
             if len(lines) <= max_lines:
                 return font, lines
-            size -= 6
+            size -= 4
 
-        font = self._get_font(font_type, min_size)
+        font = self._get_font(effective_font_type, min_size)
         lines = self._wrap_text(text, font, max_width)
         return font, lines[:max_lines]
 
@@ -978,6 +1088,8 @@ class ImageGenerator:
         width, height = size
         image = Image.new("RGB", size)
         pixels = image.load()
+        if pixels is None:
+            return image
 
         # Ensure we have at least 2 colors
         if len(colors) < 2:
@@ -1280,13 +1392,16 @@ class ImageGenerator:
             reshaped_text = arabic_reshaper.reshape(text)
             # Step 2: Apply bidirectional algorithm for RTL
             bidi_text = get_display(reshaped_text)
-            return bidi_text
+            return str(bidi_text)
         except Exception as e:
             logger.warning(f"Arabic processing failed: {e}")
             return text
 
     def _wrap_text(
-        self, text: str, font: ImageFont.FreeTypeFont, max_width: int
+        self,
+        text: str,
+        font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+        max_width: int,
     ) -> List[str]:
         """
         Intelligently wrap text to fit within a maximum width.
@@ -1302,12 +1417,14 @@ class ImageGenerator:
             current_line.append(word)
             test_line = " ".join(current_line)
 
+            display_line = self._process_arabic_text(test_line)
+
             # Get text width
             try:
-                bbox = font.getbbox(test_line)
+                bbox = font.getbbox(display_line)
                 text_width = bbox[2] - bbox[0]
-            except:
-                text_width = len(test_line) * (font.size * 0.6)
+            except Exception:
+                text_width = int(len(test_line) * (getattr(font, "size", 16) * 0.6))
 
             if text_width > max_width:
                 # Line is too long, move last word to new line
@@ -1331,9 +1448,11 @@ class ImageGenerator:
         image: Image.Image,
         text: str,
         position: Tuple[int, int],
-        font: ImageFont.FreeTypeFont,
+        font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
         color: Tuple[int, int, int] = (255, 255, 255),
         shadow: bool = True,
+        outline_width: Optional[int] = None,
+        shadow_offset: Optional[int] = None,
     ) -> Image.Image:
         """
         Render text with full emoji and Arabic support.
@@ -1350,29 +1469,35 @@ class ImageGenerator:
         # 🔤 Process Arabic text for correct rendering
         processed_text = self._process_arabic_text(text)
 
-        draw = ImageDraw.Draw(image)
+        draw = ImageDraw.Draw(image, "RGBA")
         emoji_font = (
             None
             if PILMOJI_AVAILABLE
             else self._get_emoji_font(getattr(font, "size", 24))
         )
 
-        def draw_runs(at_x: int, at_y: int, fill: Tuple[int, int, int]):
+        def _normalize_fill(fill: Tuple[int, int, int] | Tuple[int, int, int, int]):
+            if len(fill) == 4:
+                return fill
+            return (fill[0], fill[1], fill[2], 255)
+
+        def draw_runs(at_x: int, at_y: int, fill: Tuple[int, int, int] | Tuple[int, int, int, int]):
+            fill_rgba = _normalize_fill(fill)
             if PILMOJI_AVAILABLE:
                 with Pilmoji(image) as pilmoji:
-                    pilmoji.text((at_x, at_y), processed_text, font=font, fill=fill)
+                    pilmoji.text((at_x, at_y), processed_text, font=font, fill=fill_rgba)
                 return
 
             # If no emoji font (or no emoji), draw normally.
             if emoji_font is None or not self._has_emoji(processed_text):
-                draw.text((at_x, at_y), processed_text, font=font, fill=fill)
+                draw.text((at_x, at_y), processed_text, font=font, fill=fill_rgba)
                 return
 
             # Mixed rendering: base font for text, emoji font for emoji chars.
             cx = at_x
             for is_emoji, run_text in self._iter_text_runs(processed_text):
                 run_font = emoji_font if is_emoji else font
-                draw.text((cx, at_y), run_text, font=run_font, fill=fill)
+                draw.text((cx, at_y), run_text, font=run_font, fill=fill_rgba)
 
                 try:
                     bbox = run_font.getbbox(run_text)
@@ -1381,12 +1506,34 @@ class ImageGenerator:
                     run_w = int(len(run_text) * (getattr(run_font, "size", 16) * 0.6))
                 cx += run_w
 
-        if shadow:
-            shadow_offset = 3
-            draw_runs(x + shadow_offset, y + shadow_offset, (0, 0, 0))
-            draw_runs(x, y, color)
-        else:
-            draw_runs(x, y, color)
+        ow = outline_width
+        if ow is None:
+            ow = int(getattr(self.config, "text_outline_width", 0) or 0)
+        ow = max(0, ow)
+
+        so = shadow_offset
+        if so is None:
+            so = int(getattr(self.config, "text_shadow_offset", 0) or 0)
+        so = max(0, so)
+
+        outline_alpha = int(getattr(self.config, "text_outline_alpha", 220) or 220)
+        shadow_alpha = int(getattr(self.config, "text_shadow_alpha", 220) or 220)
+
+        if ow > 0:
+            outline_fill = (0, 0, 0, outline_alpha)
+            for dx in range(-ow, ow + 1):
+                for dy in range(-ow, ow + 1):
+                    if dx == 0 and dy == 0:
+                        continue
+                    if max(abs(dx), abs(dy)) != ow:
+                        continue
+                    draw_runs(x + dx, y + dy, outline_fill)
+
+        shadow_enabled = shadow and bool(getattr(self.config, "text_shadow", True))
+        if shadow_enabled and so > 0:
+            draw_runs(x + so, y + so, (0, 0, 0, shadow_alpha))
+
+        draw_runs(x, y, color)
 
         return image
 
@@ -1487,9 +1634,17 @@ class ImageGenerator:
 
         margin = 70
 
-        def center_line_x(line: str, font: ImageFont.FreeTypeFont, x1: int, x2: int):
+        def center_line_x(
+            line: str,
+            font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+            x1: int,
+            x2: int,
+        ):
             processed = self._process_arabic_text(line)
             w = self._measure_text_width(processed, font)
+            align = (getattr(self.config, "text_align", "center") or "center").strip().lower()
+            if align == "right":
+                return x2 - w
             return x1 + ((x2 - x1) - w) // 2
 
         if template == ImageTemplate.SPLIT_HERO:
@@ -1759,11 +1914,23 @@ class ImageGenerator:
         # ═══════════════════════════════════════════════════════════════════
         # LAYER 7: Branding (Optional watermark)
         # ═══════════════════════════════════════════════════════════════════
-        watermark_enabled = self._env_flag("IMAGE_WATERMARK_ENABLED", "1")
+        cfg_watermark_text = (
+            (getattr(self._poster_cfg, "watermark_text", "") if self._poster_cfg is not None else "")
+            or ""
+        ).strip()
+
+        env_watermark_text = (os.getenv("IMAGE_WATERMARK_TEXT") or "").strip()
+        env_watermark_enabled = self._env_flag("IMAGE_WATERMARK_ENABLED", "0")
+
+        watermark_enabled = bool(cfg_watermark_text) or (
+            env_watermark_enabled and bool(env_watermark_text)
+        )
         if watermark_enabled:
             watermark_text = (
-                os.getenv("IMAGE_WATERMARK_TEXT") or "Mohamed Shaban"
-            ).strip()
+                cfg_watermark_text
+                if cfg_watermark_text
+                else env_watermark_text
+            )
             if watermark_text:
                 image = self._add_watermark(image, watermark_text)
 

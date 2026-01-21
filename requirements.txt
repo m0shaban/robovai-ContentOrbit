@@ -45,11 +45,13 @@ google-auth-httplib2>=0.2.0
 # Image Processing
 Pillow>=10.0.0
 
+# Emoji rendering (pin versions: pilmoji 2.0.4 requires emoji < 2)
+pilmoji==2.0.4
+emoji==1.7.0
+
 # Arabic text shaping (for correct RTL rendering in generated images)
 arabic-reshaper>=3.0.0
 python-bidi>=0.6.0
-python-dotenv>=1.0.1
-aiohttp>=3.9.0
 
 # Timezone
 pytz>=2023.3

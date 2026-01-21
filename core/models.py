@@ -399,6 +399,63 @@ class ScheduleConfig(BaseModel):
     facebook_enabled: bool = Field(default=True)
 
 
+class PosterStyleConfig(BaseModel):
+    """Poster / OG image style settings.
+
+    These settings are safe to expose in the dashboard (no secrets) and are
+    designed to make the poster system easily white-labelable per client.
+    """
+
+    enabled: bool = Field(default=True, description="Enable generating branded poster images")
+
+    # Language / layout
+    default_language: str = Field(default="ar", description="Default poster language (ar/en)")
+    text_align: str = Field(default="center", description="Text alignment: center/right")
+
+    # Typography
+    title_font_size: int = Field(default=104, ge=16, le=180)
+    hook_font_size: int = Field(default=52, ge=12, le=120)
+    min_title_font_size: int = Field(default=64, ge=10, le=160)
+    min_hook_font_size: int = Field(default=34, ge=10, le=100)
+    max_title_lines: int = Field(default=2, ge=1, le=5)
+    max_hook_lines: int = Field(default=1, ge=0, le=3)
+
+    # Contrast / readability
+    overlay_opacity: float = Field(default=0.55, ge=0.0, le=1.0)
+    card_opacity: int = Field(default=150, ge=0, le=255)
+    border_width: int = Field(default=4, ge=0, le=20)
+    border_glow: bool = Field(default=True)
+
+    # Text effects
+    text_shadow: bool = Field(default=True)
+    text_shadow_offset: int = Field(default=3, ge=0, le=20)
+    text_shadow_alpha: int = Field(default=220, ge=0, le=255)
+    text_outline_width: int = Field(default=3, ge=0, le=20)
+    text_outline_alpha: int = Field(default=220, ge=0, le=255)
+
+    # Watermark
+    watermark_text: str = Field(default="", description="Optional watermark shown on images")
+    watermark_opacity: float = Field(default=0.33, ge=0.0, le=1.0)
+    watermark_font_size: int = Field(default=18, ge=8, le=48)
+
+    # Convenience
+    auto_emoji_title: bool = Field(default=True, description="Auto-prefix title with topic emoji")
+
+    @validator("default_language")
+    def _validate_language(cls, v: str):
+        v = (v or "").strip().lower()
+        if v not in ("ar", "en"):
+            return "ar"
+        return v
+
+    @validator("text_align")
+    def _validate_align(cls, v: str):
+        v = (v or "").strip().lower()
+        if v not in ("center", "right"):
+            return "center"
+        return v
+
+
 class AppConfig(BaseModel):
     """Main Application Configuration - The Heart of Config-Driven Architecture"""
 
@@ -418,6 +475,9 @@ class AppConfig(BaseModel):
 
     # Schedule
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
+
+    # Poster / Image Styling (white-label)
+    poster: PosterStyleConfig = Field(default_factory=PosterStyleConfig)
 
     # Dashboard Security
     dashboard_password: str = Field(

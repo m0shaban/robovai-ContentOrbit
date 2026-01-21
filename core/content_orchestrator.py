@@ -100,7 +100,7 @@ class ContentOrchestrator:
         self.devto = DevToPublisher(config)
         self.telegram = TelegramPublisher(config)
         self.facebook = FacebookPublisher(config)
-        self.image_generator = ImageGenerator()
+        self.image_generator = ImageGenerator(config=self.config)
 
         #  Initialize CTA Strategy
         self.cta = CTAStrategy()

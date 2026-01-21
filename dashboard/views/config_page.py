@@ -622,6 +622,185 @@ def render_config_page(config, db):
             config.save()
             st.success("✅ Branding saved!")
 
+        st.markdown("---")
+
+        # Poster / OG Image Style (white-label)
+        with st.expander("🖼️ Poster / OG Image Style", expanded=False):
+            poster = getattr(config.app_config, "poster", None)
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                default_language = st.selectbox(
+                    "Default poster language",
+                    options=["ar", "en"],
+                    index=0
+                    if (getattr(poster, "default_language", "ar") or "ar") == "ar"
+                    else 1,
+                    help="Controls defaults for RTL-friendly rendering and font selection",
+                )
+                text_align = st.selectbox(
+                    "Text alignment",
+                    options=["center", "right"],
+                    index=0
+                    if (getattr(poster, "text_align", "center") or "center") == "center"
+                    else 1,
+                )
+                max_title_lines = st.slider(
+                    "Max title lines",
+                    min_value=1,
+                    max_value=5,
+                    value=int(getattr(poster, "max_title_lines", 2) or 2),
+                )
+                max_hook_lines = st.slider(
+                    "Max hook lines",
+                    min_value=0,
+                    max_value=3,
+                    value=int(getattr(poster, "max_hook_lines", 1) or 1),
+                )
+
+            with col_b:
+                title_font_size = st.slider(
+                    "Title font size",
+                    min_value=40,
+                    max_value=180,
+                    value=int(getattr(poster, "title_font_size", 104) or 104),
+                )
+                hook_font_size = st.slider(
+                    "Hook font size",
+                    min_value=18,
+                    max_value=120,
+                    value=int(getattr(poster, "hook_font_size", 52) or 52),
+                )
+                min_title_font_size = st.slider(
+                    "Min title font size",
+                    min_value=20,
+                    max_value=160,
+                    value=int(getattr(poster, "min_title_font_size", 64) or 64),
+                )
+                min_hook_font_size = st.slider(
+                    "Min hook font size",
+                    min_value=14,
+                    max_value=100,
+                    value=int(getattr(poster, "min_hook_font_size", 34) or 34),
+                )
+
+            st.markdown("#### Readability")
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                overlay_opacity = st.slider(
+                    "Overlay opacity",
+                    min_value=0.0,
+                    max_value=0.9,
+                    value=float(getattr(poster, "overlay_opacity", 0.55) or 0.55),
+                    step=0.01,
+                )
+                card_opacity = st.slider(
+                    "Card opacity",
+                    min_value=0,
+                    max_value=255,
+                    value=int(getattr(poster, "card_opacity", 150) or 150),
+                )
+                border_width = st.slider(
+                    "Border width",
+                    min_value=0,
+                    max_value=12,
+                    value=int(getattr(poster, "border_width", 4) or 4),
+                )
+                border_glow = st.checkbox(
+                    "Border glow",
+                    value=bool(getattr(poster, "border_glow", True)),
+                )
+
+            with col_r2:
+                text_outline_width = st.slider(
+                    "Text outline width",
+                    min_value=0,
+                    max_value=12,
+                    value=int(getattr(poster, "text_outline_width", 3) or 3),
+                )
+                text_outline_alpha = st.slider(
+                    "Text outline alpha",
+                    min_value=0,
+                    max_value=255,
+                    value=int(getattr(poster, "text_outline_alpha", 220) or 220),
+                )
+                text_shadow = st.checkbox(
+                    "Text shadow",
+                    value=bool(getattr(poster, "text_shadow", True)),
+                )
+                text_shadow_offset = st.slider(
+                    "Text shadow offset",
+                    min_value=0,
+                    max_value=20,
+                    value=int(getattr(poster, "text_shadow_offset", 3) or 3),
+                )
+                text_shadow_alpha = st.slider(
+                    "Text shadow alpha",
+                    min_value=0,
+                    max_value=255,
+                    value=int(getattr(poster, "text_shadow_alpha", 220) or 220),
+                )
+
+            st.markdown("#### Watermark")
+            watermark_text = st.text_input(
+                "Watermark text (optional)",
+                value=str(getattr(poster, "watermark_text", "") or ""),
+                help="Leave empty to use env IMAGE_WATERMARK_TEXT (or disable watermark)",
+            )
+            col_w1, col_w2 = st.columns(2)
+            with col_w1:
+                watermark_opacity = st.slider(
+                    "Watermark opacity",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=float(getattr(poster, "watermark_opacity", 0.33) or 0.33),
+                    step=0.01,
+                )
+            with col_w2:
+                watermark_font_size = st.slider(
+                    "Watermark font size",
+                    min_value=10,
+                    max_value=48,
+                    value=int(getattr(poster, "watermark_font_size", 18) or 18),
+                )
+
+            auto_emoji_title = st.checkbox(
+                "Auto emoji prefix for titles",
+                value=bool(getattr(poster, "auto_emoji_title", True)),
+            )
+
+            if st.button("💾 Save Poster Style", key="save_poster_style", use_container_width=True):
+                if poster is None:
+                    from core.models import PosterStyleConfig
+
+                    poster = PosterStyleConfig()
+                    config.app_config.poster = poster
+
+                poster.default_language = default_language
+                poster.text_align = text_align
+                poster.max_title_lines = int(max_title_lines)
+                poster.max_hook_lines = int(max_hook_lines)
+                poster.title_font_size = int(title_font_size)
+                poster.hook_font_size = int(hook_font_size)
+                poster.min_title_font_size = int(min_title_font_size)
+                poster.min_hook_font_size = int(min_hook_font_size)
+                poster.overlay_opacity = float(overlay_opacity)
+                poster.card_opacity = int(card_opacity)
+                poster.border_width = int(border_width)
+                poster.border_glow = bool(border_glow)
+                poster.text_outline_width = int(text_outline_width)
+                poster.text_outline_alpha = int(text_outline_alpha)
+                poster.text_shadow = bool(text_shadow)
+                poster.text_shadow_offset = int(text_shadow_offset)
+                poster.text_shadow_alpha = int(text_shadow_alpha)
+                poster.watermark_text = str(watermark_text or "").strip()
+                poster.watermark_opacity = float(watermark_opacity)
+                poster.watermark_font_size = int(watermark_font_size)
+                poster.auto_emoji_title = bool(auto_emoji_title)
+
+                config.save()
+                st.success("✅ Poster style saved! It will apply to new images.")
+
     # ═══════════════════════════════════════════════════════════════════════════
     # EXPORT/IMPORT CONFIG
     # ═══════════════════════════════════════════════════════════════════════════
@@ -642,6 +821,30 @@ def render_config_page(config, db):
             export_data = {
                 "brand_name": config.app_config.brand_name,
                 "brand_tagline": config.app_config.brand_tagline,
+                "poster": {
+                    "enabled": getattr(config.app_config.poster, "enabled", True),
+                    "default_language": getattr(config.app_config.poster, "default_language", "ar"),
+                    "text_align": getattr(config.app_config.poster, "text_align", "center"),
+                    "title_font_size": getattr(config.app_config.poster, "title_font_size", 104),
+                    "hook_font_size": getattr(config.app_config.poster, "hook_font_size", 52),
+                    "min_title_font_size": getattr(config.app_config.poster, "min_title_font_size", 64),
+                    "min_hook_font_size": getattr(config.app_config.poster, "min_hook_font_size", 34),
+                    "max_title_lines": getattr(config.app_config.poster, "max_title_lines", 2),
+                    "max_hook_lines": getattr(config.app_config.poster, "max_hook_lines", 1),
+                    "overlay_opacity": getattr(config.app_config.poster, "overlay_opacity", 0.55),
+                    "card_opacity": getattr(config.app_config.poster, "card_opacity", 150),
+                    "border_width": getattr(config.app_config.poster, "border_width", 4),
+                    "border_glow": getattr(config.app_config.poster, "border_glow", True),
+                    "text_shadow": getattr(config.app_config.poster, "text_shadow", True),
+                    "text_shadow_offset": getattr(config.app_config.poster, "text_shadow_offset", 3),
+                    "text_shadow_alpha": getattr(config.app_config.poster, "text_shadow_alpha", 220),
+                    "text_outline_width": getattr(config.app_config.poster, "text_outline_width", 3),
+                    "text_outline_alpha": getattr(config.app_config.poster, "text_outline_alpha", 220),
+                    "watermark_text": getattr(config.app_config.poster, "watermark_text", ""),
+                    "watermark_opacity": getattr(config.app_config.poster, "watermark_opacity", 0.33),
+                    "watermark_font_size": getattr(config.app_config.poster, "watermark_font_size", 18),
+                    "auto_emoji_title": getattr(config.app_config.poster, "auto_emoji_title", True),
+                },
                 "schedule": {
                     "posting_interval_minutes": config.app_config.schedule.posting_interval_minutes,
                     "max_posts_per_day": config.app_config.schedule.max_posts_per_day,

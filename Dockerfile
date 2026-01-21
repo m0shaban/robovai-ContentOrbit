@@ -44,6 +44,10 @@ RUN groupadd --gid 1000 contentorbit && \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     tzdata \
+    fontconfig \
+    fonts-dejavu-core \
+    fonts-noto-core \
+    fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder

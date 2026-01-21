@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.image_generator import ImageGenerator
+from core.config_manager import ConfigManager
 
 
 def main() -> int:
@@ -27,7 +28,9 @@ def main() -> int:
     out_dir = Path(os.getenv("SAMPLES_OUT_DIR") or "output")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    gen = ImageGenerator()
+    # Load config.json so samples reflect dashboard poster settings
+    config = ConfigManager()
+    gen = ImageGenerator(config=config)
 
     for i in range(1, count + 1):
         img = gen.generate(title=title, hook=hook)
