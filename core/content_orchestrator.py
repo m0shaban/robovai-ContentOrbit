@@ -271,7 +271,7 @@ class ContentOrchestrator:
                 self.config.sheets_manager.log_activity({
                     "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
                     "title": result.article.title if result.article else "Unknown",
-                    "source_url": result.article.url if result.article else "",
+                    "source_url": result.article.original_url if result.article else "",
                     "blogger_link": result.blogger_url or "",
                     "devto_link": result.devto_url or "",
                     "facebook_link": str(result.facebook_post_id) if result.facebook_post_id else "",
