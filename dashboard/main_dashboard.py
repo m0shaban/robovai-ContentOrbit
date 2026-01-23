@@ -19,6 +19,36 @@ from dashboard.auth import check_password, render_logout_button
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def setup_google_credentials():
+    """Restores service_account.json from env vars for cloud deployment"""
+    import json
+    
+    # Path relative to project root
+    creds_path = ROOT_DIR / "data" / "service_account.json"
+    
+    if creds_path.exists():
+        return
+
+    creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    if creds_json:
+        try:
+            creds_data = json.loads(creds_json)
+            # Ensure data dir exists
+            creds_path.parent.mkdir(exist_ok=True, parents=True)
+            
+            with open(creds_path, "w", encoding="utf-8") as f:
+                json.dump(creds_data, f, indent=2)
+            print("✅ service_account.json restored from env vars.")
+        except Exception as e:
+            print(f"❌ Failed to restore credentials: {e}")
+
+setup_google_credentials()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # PAGE CONFIG
 # ═══════════════════════════════════════════════════════════════════════════════
 
