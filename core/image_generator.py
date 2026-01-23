@@ -141,8 +141,8 @@ class DesignConfig:
 
     # Typography settings
     # Bigger by default for social readability.
-    title_font_size: int = 104
-    hook_font_size: int = 52
+    title_font_size: int = 85
+    hook_font_size: int = 48
     title_max_width: int = 980  # Max width before wrapping
     # Default layout target: 1-2 title lines + 0-1 hook line (social friendly)
     max_title_lines: int = 2
@@ -162,11 +162,11 @@ class DesignConfig:
     overlay_opacity: float = 0.55  # 0.0 to 1.0
 
     # Glass card settings (for templates)
-    card_opacity: int = 150  # 0..255
+    card_opacity: int = 90  # 0..255
     card_blur_radius: int = 10
     card_radius: int = 28
-    card_padding_x: int = 54
-    card_padding_y: int = 44
+    card_padding_x: int = 30
+    card_padding_y: int = 25
 
     # Geometric elements
     num_circles: int = 8
@@ -692,6 +692,7 @@ class ImageGenerator:
                 "NotoSans-Regular.ttf",
             ],
             "arabic": [
+                "NotoSansArabic-Bold.ttf",
                 "NotoSansArabic-Regular.ttf",
                 "NotoNaskhArabic-Regular.ttf",
                 "NotoKufiArabic-Regular.ttf",

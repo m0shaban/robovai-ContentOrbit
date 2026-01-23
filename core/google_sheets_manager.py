@@ -28,7 +28,7 @@ class GoogleSheetsManager:
     COLS_FEEDS = ["Category", "Name", "URL", "Priority", "Active"]
     COLS_LOGS = ["Date", "Title", "Source URL", "Blogger Link", "Dev.to Link", "Facebook Link", "Telegram Link", "Status"]
 
-    def __init__(self, key_path: str = "service_account.json", sheet_name: str = "RoboVAI Control Room", sheet_id: Optional[str] = None):
+    def __init__(self, key_path: str = "service_account.json", sheet_name: str = "ContentOrbit Control Room", sheet_id: Optional[str] = None):
         self.key_path = key_path
         self.sheet_name = sheet_name
         self.sheet_id = sheet_id
