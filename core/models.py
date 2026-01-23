@@ -487,6 +487,8 @@ class AppConfig(BaseModel):
     # Brand Identity
     brand_name: str = Field(default="ContentOrbit Enterprise")
     brand_tagline: str = Field(default="Your Content, Everywhere")
+    google_sheet_name: str = Field(default="ContentOrbit Control Room", description="Name of the Google Sheet for remote control")
+    google_sheet_id: Optional[str] = Field(default=None, description="ID of the Google Sheet (preferred over name)")
 
     # API Configurations
     telegram: Optional[TelegramConfig] = None

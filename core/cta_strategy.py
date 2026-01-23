@@ -75,6 +75,13 @@ class PlatformLinks:
     junior_url: str = "https://junior.robovai.tech"
     core_url: str = "https://core.robovai.tech"
 
+    def update_from_dict(self, config: Dict[str, str]):
+        """Updates fields from a dictionary (e.g., from Google Sheets)."""
+        for key, value in config.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+
 
 class CTAStrategy:
     """
@@ -95,8 +102,15 @@ class CTAStrategy:
     - Telegram: News hub & direct updates
     """
 
-    def __init__(self, links: Optional[PlatformLinks] = None):
+    def __init__(self, links: Optional[PlatformLinks] = None, config_manager=None):
         self.links = links or PlatformLinks()
+        
+        # If config manager provided and has sheets connected, sync
+        if config_manager and config_manager.sheets_manager.is_connected():
+            logger.info("⚡ Syncing CTA Links from Google Sheets...")
+            sheet_config = config_manager.sheets_manager.fetch_config()
+            if sheet_config:
+                self.links.update_from_dict(sheet_config)
 
     # ═══════════════════════════════════════════════════════════════════════════
     # 📝 BLOGGER CTAs (Arabic - Main Blog)

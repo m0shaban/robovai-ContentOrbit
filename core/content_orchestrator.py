@@ -76,10 +76,11 @@ class ContentOrchestrator:
     Content Orchestrator - The Spider Web Strategy Implementation
 
     Coordinates all components to execute the content distribution pipeline:
-    1. Fetcher -> Get content from RSS
+    1. Fetcher/Queue -> Get content from RSS or Google Sheets Queue
     2. AI Engine -> Generate platform-specific content
     3. Publishers -> Distribute to all platforms
     4. Database -> Track everything
+    5. Logger -> Log results to Google Sheets Control Room
     """
 
     def __init__(self, config: ConfigManager, db: DatabaseManager):
@@ -102,8 +103,8 @@ class ContentOrchestrator:
         self.facebook = FacebookPublisher(config)
         self.image_generator = ImageGenerator(config=self.config)
 
-        #  Initialize CTA Strategy
-        self.cta = CTAStrategy()
+        #  Initialize CTA Strategy (with config used for potential Sheet overrides)
+        self.cta = CTAStrategy(config_manager=self.config)
 
         logger.info("🎭 Content Orchestrator initialized")
 
@@ -264,6 +265,19 @@ class ContentOrchestrator:
 
             # Save to database
             self._save_published_post(result)
+            
+            # Log to Google Sheets
+            if self.config.sheets_manager.is_connected():
+                self.config.sheets_manager.log_activity({
+                    "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                    "title": result.article.title if result.article else "Unknown",
+                    "source_url": result.article.url if result.article else "",
+                    "blogger_link": result.blogger_url or "",
+                    "devto_link": result.devto_url or "",
+                    "facebook_link": str(result.facebook_post_id) if result.facebook_post_id else "",
+                    "telegram_link": str(result.telegram_message_id) if result.telegram_message_id else "",
+                    "status": "Success" if result.success else "Partial/Fail"
+                })
 
             logger.info("=" * 60)
             logger.info(f"✅ Pipeline completed in {result.processing_time:.2f}s")

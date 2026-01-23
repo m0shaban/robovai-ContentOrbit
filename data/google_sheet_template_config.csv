@@ -1,0 +1,13 @@
+Key,Value,Description
+telegram_channel,@robovai_hub,Main Telegram Channel ID
+telegram_hub_url,https://t.me/robovai_hub,Public Link for Telegram Channel
+facebook_page,https://www.facebook.com/robovaisolutions,Facebook Page URL
+devto_profile,https://dev.to/mohamedshabanai/,Dev.to Profile URL
+blogger_home,https://www.robovai.tech/,Main Blog URL
+whatsapp_url,https://wa.me/201234567890,WhatsApp Direct Link
+personal_site,https://moshaban.me,Personal Branding Website
+community_chat,https://t.me/robovai_chat,Community Chat Group
+academy_url,https://academy.robovai.tech,RoboVAI Academy Landing Page
+bot_url,https://bot.robovai.tech,RoboVAI Bot Product Page
+junior_url,https://junior.robovai.tech,RoboVAI Junior Product Page
+core_url,https://core.robovai.tech,RoboVAI Core Solutions Page

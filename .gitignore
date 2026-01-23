@@ -89,3 +89,5 @@ tools/tmp_docx_extract.zip
 .pytest_cache/
 .coverage
 htmlcov/
+
+data/service_account.json

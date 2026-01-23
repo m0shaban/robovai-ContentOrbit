@@ -1,0 +1,255 @@
+Category,Name,URL,Priority,Active
+AI News,Artificial Intelligence News,https://www.artificialintelligence-news.com/feed/,1,TRUE
+AI News,VentureBeat AI,https://venturebeat.com/category/ai/feed/,1,TRUE
+AI News,MIT Technology Review,https://www.technologyreview.com/feed/,1,TRUE
+AI News,OpenAI Blog,https://openai.com/blog/rss.xml,1,TRUE
+AI News,DeepMind,https://deepmind.google/blog/rss.xml,1,TRUE
+AI News,Google AI Blog,http://googleaiblog.blogspot.com/atom.xml,2,TRUE
+AI News,Microsoft AI,https://blogs.microsoft.com/ai/feed/,2,TRUE
+AI News,NVIDIA Blog,https://blogs.nvidia.com/feed/,1,TRUE
+AI News,BAIR (Berkeley AI Research),https://bair.berkeley.edu/blog/feed.xml,1,TRUE
+AI News,Stanford HAI,https://hai.stanford.edu/news/feed,2,TRUE
+AI News,The Gradient,https://thegradient.pub/rss/,2,TRUE
+AI News,Distill,https://distill.pub/rss.xml,2,TRUE
+AI News,Machine Learning Mastery,https://machinelearningmastery.com/feed/,2,TRUE
+AI News,Towards Data Science,https://towardsdatascience.com/feed,2,TRUE
+AI News,KDnuggets,https://www.kdnuggets.com/feed,2,TRUE
+AI News,Analytics Vidhya,https://www.analyticsvidhya.com/feed/,2,TRUE
+AI News,Hugging Face Blog,https://huggingface.co/blog/feed.xml,1,TRUE
+AI News,Meta AI Blog,https://ai.facebook.com/blog/rss/,1,TRUE
+AI News,AWS Machine Learning Blog,https://aws.amazon.com/blogs/machine-learning/feed/,2,TRUE
+AI News,TensorFlow Blog,https://blog.tensorflow.org/rss.xml,2,TRUE
+AI News,PyTorch Blog,https://pytorch.org/blog/feed.xml,2,TRUE
+AI News,Fast.ai Blog,https://www.fast.ai/atom.xml,2,TRUE
+AI News,GradientFlow,https://gradientflow.com/feed/,3,TRUE
+AI News,Import AI,https://jack-clark.net/feed/,1,TRUE
+AI News,Last Week in AI,https://lastweekin.ai/feed,2,TRUE
+Tech & Business,TechCrunch AI,https://techcrunch.com/category/artificial-intelligence/feed/,2,TRUE
+Tech & Business,TechCrunch,https://techcrunch.com/feed/,1,TRUE
+Tech & Business,The Verge,https://www.theverge.com/rss/index.xml,1,TRUE
+Tech & Business,Wired AI,https://www.wired.com/feed/category/ai/latest/rss,2,TRUE
+Tech & Business,Wired Business,https://www.wired.com/feed/category/business/latest/rss,3,TRUE
+Tech & Business,Ars Technica,https://feeds.arstechnica.com/arstechnica/index,2,TRUE
+Tech & Business,TheNextWeb,https://thenextweb.com/feed,3,TRUE
+Tech & Business,Mashable,https://mashable.com/feed,3,TRUE
+Tech & Business,Gizmodo,https://gizmodo.com/rss,3,TRUE
+Tech & Business,Engadget,https://www.engadget.com/rss.xml,3,TRUE
+Tech & Business,ZDNet,https://www.zdnet.com/rss.xml,3,TRUE
+Tech & Business,InfoQ,https://www.infoq.com/feed/,3,TRUE
+Tech & Business,Bloomberg Technology,https://feeds.bloomberg.com/technology/news.rss,2,TRUE
+Tech & Business,CNBC Tech,https://www.cnbc.com/id/19854910/device/rss/rss.html,2,TRUE
+Tech & Business,Financial Times Tech,https://www.ft.com/technology?format=rss,3,TRUE
+Tech & Business,Forbes Tech,https://www.forbes.com/technology/feed/,3,TRUE
+Startups,Y Combinator,https://blog.ycombinator.com/feed/,2,TRUE
+Startups,Hacker News,https://news.ycombinator.com/rss,1,TRUE
+Startups,Andreessen Horowitz (a16z),https://a16z.com/feed/,2,TRUE
+Startups,Sequoia Capital,https://www.sequoiacap.com/feed/,2,TRUE
+Startups,First Round Review,https://review.firstround.com/feed.xml,2,TRUE
+Startups,Paul Graham,http://www.aaronsw.com/2002/feeds/pgessays.rss,3,TRUE
+Startups,SaaStr,https://www.saastr.com/feed/,3,TRUE
+Startups,Indie Hackers,https://www.indiehackers.com/feed.xml,3,TRUE
+Startups,Product Hunt,https://www.producthunt.com/feed,2,TRUE
+Startups,Wamda (MENA),https://www.wamda.com/feed/xml,1,TRUE
+Startups,Magnitt,https://magnitt.com/feed,2,TRUE
+Startups,MENAbytes,https://www.menabytes.com/feed/,2,TRUE
+Startups,Entrepreneur Middle East,https://www.entrepreneur.com/feed/middle-east,3,TRUE
+DevOps & Cloud,DevOps.com,https://devops.com/feed/,2,TRUE
+DevOps & Cloud,Kubernetes Blog,https://kubernetes.io/feed.xml,2,TRUE
+DevOps & Cloud,Docker Blog,https://www.docker.com/blog/feed/,2,TRUE
+DevOps & Cloud,AWS News Blog,https://aws.amazon.com/blogs/aws/feed/,2,TRUE
+DevOps & Cloud,Google Cloud Blog,https://cloud.google.com/blog/rss,2,TRUE
+DevOps & Cloud,Azure Blog,https://azure.microsoft.com/en-us/blog/feed/,2,TRUE
+DevOps & Cloud,HashiCorp Blog,https://www.hashicorp.com/blog/feed.xml,2,TRUE
+DevOps & Cloud,Cloudflare Blog,https://blog.cloudflare.com/rss/,2,TRUE
+DevOps & Cloud,Datadog Blog,https://www.datadoghq.com/blog/feed/,3,TRUE
+DevOps & Cloud,Google SRE Blog,https://sre.google/blog/rss.xml,2,TRUE
+DevOps & Cloud,Netflix Tech Blog,https://netflixtechblog.com/feed,2,TRUE
+DevOps & Cloud,Martin Fowler,https://martinfowler.com/feed.atom,2,TRUE
+DevOps & Cloud,Serverless.com,https://www.serverless.com/blog/feed.xml,3,TRUE
+DevOps & Cloud,CNCF Blog,https://www.cncf.io/blog/feed/,3,TRUE
+DevOps & Cloud,Grafana Blog,https://grafana.com/blog/index.xml,3,TRUE
+DevOps & Cloud,Prometheus Blog,https://prometheus.io/blog/feed.xml,3,TRUE
+Cybersecurity,Krebs on Security,https://krebsonsecurity.com/feed/,1,TRUE
+Cybersecurity,Schneier on Security,https://www.schneier.com/blog/atom.xml,2,TRUE
+Cybersecurity,The Hacker News,https://feeds.feedburner.com/TheHackersNews,1,TRUE
+Cybersecurity,Dark Reading,https://www.darkreading.com/rss.xml,2,TRUE
+Cybersecurity,Threatpost,https://threatpost.com/feed/,2,TRUE
+Cybersecurity,Troy Hunt,https://www.troyhunt.com/rss/,2,TRUE
+Cybersecurity,Have I Been Pwned,https://haveibeenpwned.com/feed,3,TRUE
+Cybersecurity,SANS Internet Storm Center,https://isc.sans.edu/rssfeed.xml,3,TRUE
+Cybersecurity,Naked Security,https://nakedsecurity.sophos.com/feed/,3,TRUE
+Cybersecurity,Malwarebytes Labs,https://blog.malwarebytes.com/feed/,3,TRUE
+Cybersecurity,Google Project Zero,https://googleprojectzero.blogspot.com/atom.xml,2,TRUE
+Programming,Real Python,https://realpython.com/atom.xml,2,TRUE
+Programming,Planet Python,https://planetpython.org/rss20.xml,2,TRUE
+Programming,Mouse vs Python,https://www.blog.pythonlibrary.org/feed/,3,TRUE
+Programming,Talk Python to Me,https://talkpython.fm/episodes/rss,3,TRUE
+Programming,Python Software Foundation,https://pyfound.blogspot.com/atom.xml,3,TRUE
+Programming,Smashing Magazine,https://www.smashingmagazine.com/feed/,2,TRUE
+Programming,CSS-Tricks,https://css-tricks.com/feed/,2,TRUE
+Programming,V8 Blog (JS),https://v8.dev/blog.atom,3,TRUE
+Programming,React Blog,https://reactjs.org/feed.xml,3,TRUE
+Programming,Baeldung (Java),https://www.baeldung.com/feed,3,TRUE
+Programming,Java Code Geeks,https://www.javacodegeeks.com/feed,3,TRUE
+Programming,Go Blog,https://blog.golang.org/feed.atom,3,TRUE
+Programming,Rust Blog,https://blog.rust-lang.org/feed.xml,3,TRUE
+Programming,FreeCodeCamp,https://www.freecodecamp.org/news/rss/,1,TRUE
+Programming,Dev.to Top,https://dev.to/feed,1,TRUE
+Programming,Stack Overflow Blog,https://stackoverflow.blog/feed/,2,TRUE
+Programming,GitHub Blog,https://github.blog/feed/,2,TRUE
+Programming,GitLab Blog,https://about.gitlab.com/atom.xml,3,TRUE
+Engineering Blogs,Uber Engineering,https://eng.uber.com/feed/,3,TRUE
+Engineering Blogs,Twitter Engineering,https://blog.twitter.com/engineering/en_us/blog.rss,3,TRUE
+Engineering Blogs,LinkedIn Engineering,https://engineering.linkedin.com/blog.rss,3,TRUE
+Engineering Blogs,Facebook Engineering,https://engineering.fb.com/feed/,2,TRUE
+Engineering Blogs,Instagram Engineering,https://instagram-engineering.com/feed,3,TRUE
+Engineering Blogs,Airbnb Engineering,https://medium.com/feed/airbnb-engineering,3,TRUE
+Engineering Blogs,Stripe Engineering,https://stripe.com/blog/engineering/rss,3,TRUE
+Engineering Blogs,Spotify Engineering,https://engineering.atspotify.com/feed/,3,TRUE
+Engineering Blogs,Slack Engineering,https://slack.engineering/feed/,3,TRUE
+Engineering Blogs,Discord Engineering,https://discord.com/blog/engineering.rss,3,TRUE
+Engineering Blogs,Pinterest Engineering,https://medium.com/feed/@Pinterest_Engineering,3,TRUE
+Engineering Blogs,Lyft Engineering,https://eng.lyft.com/feed,3,TRUE
+Engineering Blogs,Dropbox Tech,https://dropbox.tech/feed,3,TRUE
+Engineering Blogs,Shopify Engineering,https://engineering.shopify.com/blogs/engineering.atom,3,TRUE
+Engineering Blogs,Etsy Engineering,https://codeascraft.com/feed/,3,TRUE
+Engineering Blogs,SoundCloud Developers,https://developers.soundcloud.com/blog.rss,3,TRUE
+Engineering Blogs,Twilio Blog,https://www.twilio.com/blog/rss,3,TRUE
+Engineering Blogs,Heroku Blog,https://blog.heroku.com/feed,3,TRUE
+Engineering Blogs,Square Corner,https://developer.squareup.com/blog/rss/,3,TRUE
+Engineering Blogs,Riot Games Tech,https://technology.riotgames.com/feed/rss.xml,3,TRUE
+Arabic Tech,Tech-WD (Ar),https://www.tech-wd.com/wd/feed/,1,TRUE
+Arabic Tech,Arageek Tech,https://www.arageek.com/tech/feed,1,TRUE
+Arabic Tech,Tech Echo,https://www.tech-echo.com/feed,2,TRUE
+Arabic Tech,Al Mal News Tech,https://almalnews.com/category/technology/feed,2,TRUE
+Arabic Tech,Arab Hardware,https://arabhardware.net/news/feed,2,TRUE
+Arabic Tech,AIT News,https://aitnews.com/feed,1,TRUE
+Arabic Tech,Egyptian Streets Tech,https://egyptianstreets.com/category/business-technology/feed,2,TRUE
+Arabic Tech,Raqami TV,https://raqamitv.com/feed,2,TRUE
+Arabic Tech,Unlimit Tech,https://www.unlimit-tech.com/feed/,2,TRUE
+Arabic Tech,Tech Voice,https://www.tech-voice.net/feed,2,TRUE
+Mobile Dev,Android Developers Blog,http://android-developers.blogspot.com/atom.xml,3,TRUE
+Mobile Dev,iOS Dev Weekly,https://iosdevweekly.com/issues.rss,3,TRUE
+Mobile Dev,Swift.org,https://swift.org/atom.xml,3,TRUE
+Mobile Dev,Kotlin Blog,https://blog.jetbrains.com/kotlin/feed/,3,TRUE
+Mobile Dev,Ray Wenderlich,https://www.raywenderlich.com/feed,3,TRUE
+Data Science,Data Science Central,https://www.datasciencecentral.com/feed/,3,TRUE
+Data Science,SmartData Collective,https://www.smartdatacollective.com/feed/,3,TRUE
+Data Science,Big Data Made Simple,https://bigdata-madesimple.com/feed/,3,TRUE
+Data Science,Datafloq,https://datafloq.com/feed/,3,TRUE
+Data Science,Dataconomy,https://dataconomy.com/feed/,3,TRUE
+Blockchain,CoinDesk,https://www.coindesk.com/arc/outboundfeeds/rss/,3,TRUE
+Blockchain,CoinTelegraph,https://cointelegraph.com/rss,3,TRUE
+Blockchain,Bitcoin Magazine,https://bitcoinmagazine.com/.rss/full/,3,TRUE
+Blockchain,Ethereum Blog,https://blog.ethereum.org/feed.xml,3,TRUE
+Blockchain,ConsenSys,https://consensys.net/blog/feed/,3,TRUE
+IoT & Hardware,Hackaday,https://hackaday.com/blog/feed/,2,TRUE
+IoT & Hardware,Adafruit,https://blog.adafruit.com/feed/,3,TRUE
+IoT & Hardware,Arduino Blog,https://blog.arduino.cc/feed/,3,TRUE
+IoT & Hardware,Raspberry Pi,https://www.raspberrypi.org/feed/,3,TRUE
+IoT & Hardware,Make: Magazine,https://makezine.com/feed/,3,TRUE
+Design & UX,UX Collective,https://uxdesign.cc/feed,3,TRUE
+Design & UX,UX Planet,https://uxplanet.org/feed,3,TRUE
+Design & UX,Nielsen Norman Group,https://www.nngroup.com/feed/rss/,3,TRUE
+Design & UX,A List Apart,https://alistapart.com/main/feed/,3,TRUE
+Design & UX,Web Designer Depot,https://www.webdesignerdepot.com/feed/,3,TRUE
+Game Dev,Gamasutra,http://feeds.feedburner.com/GamasutraNews,3,TRUE
+Game Dev,Unity Blog,https://blogs.unity3d.com/feed/,3,TRUE
+Game Dev,Unreal Engine Blog,https://www.unrealengine.com/en-US/rss,3,TRUE
+Academic CS,Communications of the ACM,https://cacm.acm.org/feed/,3,TRUE
+Academic CS,IEEE Spectrum,https://spectrum.ieee.org/rss/blog/tech-talk,3,TRUE
+Sustainability,CleanTechnica,https://cleantechnica.com/feed/,2,TRUE
+Sustainability,GreenBiz,https://www.greenbiz.com/rss.xml,3,TRUE
+Agile & Management,Scrum.org,https://www.scrum.org/resources/blog/rss.xml,3,TRUE
+Agile & Management,LeadingAgile,https://www.leadingagile.com/blog/feed/,3,TRUE
+Agile & Management,Mountain Goat Software,https://www.mountaingoatsoftware.com/blog/rss,3,TRUE
+Podcasts (Feed),Syntax FM,https://feed.syntax.fm/rss,3,TRUE
+Podcasts (Feed),Changelog Master Feed,https://changelog.com/master/feed,3,TRUE
+Podcasts (Feed),Software Engineering Daily,https://softwareengineeringdaily.com/feed/podcast/,3,TRUE
+Misc Tech,DZone,https://dzone.com/feed/frontpage,3,TRUE
+Misc Tech,Slashdot,http://rss.slashdot.org/Slashdot/slashdot,3,TRUE
+Misc Tech,The Register,https://www.theregister.com/headlines.atom,3,TRUE
+Misc Tech,ComputerWorld,https://www.computerworld.com/index.rss,3,TRUE
+Misc Tech,ITProPortal,https://www.itproportal.com/rss,3,TRUE
+Misc Tech,VentureBeat,https://venturebeat.com/feed/,2,TRUE
+Misc Tech,ReadWrite,https://readwrite.com/feed/,3,TRUE
+Misc Tech,ExtremeTech,https://www.extremetech.com/feed,3,TRUE
+Misc Tech,AnandTech,https://www.anandtech.com/rss/,3,TRUE
+Misc Tech,Tom's Hardware,https://www.tomshardware.com/feeds/all,3,TRUE
+Misc Tech,PC Gamer,https://www.pcgamer.com/rss,3,TRUE
+Misc Tech,Polygon,https://www.polygon.com/rss/index.xml,3,TRUE
+Misc Tech,Kotaku,https://kotaku.com/rss,3,TRUE
+Misc Tech,Lifehacker,https://lifehacker.com/rss,3,TRUE
+Misc Tech,How-To Geek,https://www.howtogeek.com/feed/,3,TRUE
+Misc Tech,Digital Trends,https://www.digitaltrends.com/feed/,3,TRUE
+Misc Tech,MakeUseOf,https://www.makeuseof.com/feed/,3,TRUE
+Misc Tech,Android Authority,https://www.androidauthority.com/feed,3,TRUE
+Misc Tech,9to5Mac,https://9to5mac.com/feed/,3,TRUE
+Misc Tech,MacRumors,https://www.macrumors.com/macrumors.xml,3,TRUE
+Misc Tech,Windows Central,https://www.windowscentral.com/rss,3,TRUE
+Misc Tech,Thurrott,https://www.thurrott.com/feed,3,TRUE
+Misc Tech,Neowin,https://www.neowin.net/news/rss,3,TRUE
+Misc Tech,BetaNews,https://betanews.com/feed/,3,TRUE
+Misc Tech,Ghacks,https://www.ghacks.net/feed/,3,TRUE
+Misc Tech,BleepingComputer,https://www.bleepingcomputer.com/feed/,2,TRUE
+Misc Tech,TorrentFreak,https://torrentfreak.com/feed/,3,TRUE
+Misc Tech,VentureBeat AR/VR,https://venturebeat.com/category/ar-vr/feed/,3,TRUE
+Misc Tech,Road to VR,https://www.roadtovr.com/feed/,3,TRUE
+Misc Tech,UploadVR,https://uploadvr.com/feed/,3,TRUE
+Misc Tech,Singularity Hub,https://singularityhub.com/feed/,3,TRUE
+Misc Tech,Futurism,https://futurism.com/feed,3,TRUE
+Misc Tech,New Atlas,https://newatlas.com/feed.xml,3,TRUE
+Misc Tech,ScienceDaily,https://www.sciencedaily.com/rss/all.xml,3,TRUE
+Misc Tech,Phys.org,https://phys.org/rss-feed/,3,TRUE
+Misc Tech,Nature News,https://www.nature.com/nature.rss,3,TRUE
+Misc Tech,Scientific American,https://www.scientificamerican.com/rss/feed.xml,3,TRUE
+Misc Tech,National Geographic,https://www.nationalgeographic.com/ngm/index.rss,3,TRUE
+Misc Tech,NASA Breaking News,https://www.nasa.gov/rss/dyn/breaking_news.rss,3,TRUE
+Misc Tech,Space.com,https://www.space.com/feeds/all,3,TRUE
+Misc Tech,Tesla Blog,https://www.tesla.com/blog/rss,3,TRUE
+Misc Tech,SpaceX News,https://www.spacex.com/news.xml,3,TRUE
+Misc Tech,EdSurge,https://www.edsurge.com/articles_rss,3,TRUE
+Misc Tech,Inside Higher Ed,https://www.insidehighered.com/rss/feed/news_feed,3,TRUE
+Misc Tech,Harvard Business Review,https://hbr.org/rss/topic/technology,3,TRUE
+Misc Tech,Forbes Innovation,https://www.forbes.com/innovation/feed/,3,TRUE
+Misc Tech,Business Insider Tech,https://www.businessinsider.com/sai/rss,3,TRUE
+Misc Tech,Fast Company,https://www.fastcompany.com/rss,3,TRUE
+Misc Tech,Inc.com,https://www.inc.com/rss.xml,3,TRUE
+Misc Tech,Entrepreneur,https://www.entrepreneur.com/latest.rss,3,TRUE
+Misc Tech,The Atlantic Tech,https://www.theatlantic.com/feed/channel/technology/,3,TRUE
+Misc Tech,New York Times Tech,https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml,3,TRUE
+Misc Tech,Washington Post Tech,https://feeds.washingtonpost.com/rss/business/technology,3,TRUE
+Misc Tech,Guardian Tech,https://www.theguardian.com/technology/rss,3,TRUE
+Misc Tech,BBC Tech,http://feeds.bbci.co.uk/news/technology/rss.xml,2,TRUE
+Misc Tech,Reuters Tech,https://www.reutersagency.com/feed/?taxonomy=business-technology&post_type=best,2,TRUE
+Misc Tech,CNN Tech,http://rss.cnn.com/rss/edition_technology.rss,3,TRUE
+Misc Tech,Al Jazeera Tech,https://www.aljazeera.com/xml/rss/all.xml,3,TRUE
+Misc Tech,RT Tech,https://www.rt.com/rss/news/,3,TRUE
+Misc Tech,DW Tech,https://rss.dw.com/xml/rss-en-sci,3,TRUE
+Misc Tech,France24 Tech,https://www.france24.com/en/technology/rss,3,TRUE
+Misc Tech,EuroNews Tech,https://www.euronews.com/rss?format=xml&level=theme&name=next,3,TRUE
+Misc Tech,Asia Times Tech,https://asiatimes.com/category/technology/feed/,3,TRUE
+Misc Tech,South China Morning Post Tech,https://www.scmp.com/rss/318208/feed,3,TRUE
+Misc Tech,Nikkei Asia Tech,https://asia.nikkei.com/rss/feed/nar,3,TRUE
+Misc Tech,Times of India Tech,https://timesofindia.indiatimes.com/rssfeeds/66949542.cms,3,TRUE
+Misc Tech,The Star Tech,https://www.thestar.com.my/rss/tech/tech-news,3,TRUE
+Misc Tech,Straits Times Tech,https://www.straitstimes.com/news/tech/rss.xml,3,TRUE
+Misc Tech,Sydney Morning Herald Tech,https://www.smh.com.au/rss/technology.xml,3,TRUE
+Misc Tech,NZ Herald Tech,https://www.nzherald.co.nz/technology/rss,3,TRUE
+Misc Tech,Global News Tech,https://globalnews.ca/tech/feed/,3,TRUE
+Misc Tech,CBC Tech,https://www.cbc.ca/cmlink/rss-technology,3,TRUE
+Misc Tech,CTV News Tech,https://www.ctvnews.ca/rss/ctvnews-ca-sci-tech-public-rss-1.822295,3,TRUE
+Misc Tech,Globe and Mail Tech,https://www.theglobeandmail.com/technology/?service=rss,3,TRUE
+Misc Tech,Financial Post Tech,https://financialpost.com/category/technology/feed,3,TRUE
+Misc Tech,CityAM Tech,https://www.cityam.com/technology/feed/,3,TRUE
+Misc Tech,Evening Standard Tech,https://www.standard.co.uk/tech/rss,3,TRUE
+Misc Tech,Independent Tech,https://www.independent.co.uk/life-style/gadgets-and-tech/rss,3,TRUE
+Misc Tech,Mirror Tech,https://www.mirror.co.uk/tech/rss.xml,3,TRUE
+Misc Tech,Sun Tech,https://www.thesun.co.uk/tech/feed/,3,TRUE
+Misc Tech,Express Tech,https://www.express.co.uk/posts/rss/77/tech,3,TRUE
+Misc Tech,Metro Tech,https://metro.co.uk/tech/feed/,3,TRUE
+Misc Tech,Daily Mail SciTech,https://www.dailymail.co.uk/sciencetech/articles.rss,3,TRUE
+Misc Tech,Sky News Tech,https://feeds.skynews.com/feeds/rss/technology.xml,3,TRUE
+Misc Tech,Channel 4 Tech,https://www.channel4.com/news/science-technology/rss,3,TRUE
+Misc Tech,Irish Times Tech,https://www.irishtimes.com/cmlink/news-1.1319192,3,TRUE
+Misc Tech,RTE Tech,https://www.rte.ie/news/rss/business-technology.xml,3,TRUE

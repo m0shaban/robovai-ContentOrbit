@@ -38,6 +38,7 @@ from .models import (
     RSSFeed,
     FeedCategory,
 )
+from .google_sheets_manager import GoogleSheetsManager
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -47,12 +48,7 @@ logger = logging.getLogger(__name__)
 class ConfigManager:
     """
     Configuration Manager - The Brain of Config-Driven Architecture
-
-    Responsibilities:
-    - Load/Save configuration from JSON file
-    - Validate all settings using Pydantic
-    - Provide easy access to all config sections
-    - Support hot-reloading for dashboard updates
+    Now integrated with Google Sheets for "Control Room" capabilities.
     """
 
     DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "data" / "config.json"
@@ -60,33 +56,35 @@ class ConfigManager:
         Path(__file__).parent.parent / "data" / "config.example.json"
     )
     DEFAULT_FEEDS_PATH = Path(__file__).parent.parent / "data" / "feeds.json"
+    SERVICE_ACCOUNT_PATH = Path(__file__).parent.parent / "data" / "service_account.json"
 
     def __init__(
         self, config_path: Optional[Path] = None, feeds_path: Optional[Path] = None
     ):
         """
-        Initialize ConfigManager
-
+        Initialize ConfigManager.
+        
         Args:
-                    "priority": 7,
-                    "is_active": False,
-            feeds_path: Path to feeds.json (uses default if None)
+           config_path (Path, optional): Path to config.json. Defaults to data/config.json.
+           feeds_path (Path, optional): Path to feeds.json. Defaults to data/feeds.json.
         """
-        self.config_path = (
-            Path(config_path) if config_path else self.DEFAULT_CONFIG_PATH
-        )
-        self.feeds_path = Path(feeds_path) if feeds_path else self.DEFAULT_FEEDS_PATH
+        self.config_path = config_path or self.DEFAULT_CONFIG_PATH
+        self.feeds_path = feeds_path or self.DEFAULT_FEEDS_PATH
+        
+        # Initialize Google Sheets Manager
+        self.sheets_manager = GoogleSheetsManager(key_path=str(self.SERVICE_ACCOUNT_PATH))
 
         # Ensure data directory exists
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
-
+        
         # Initialize with defaults
         self.app_config: AppConfig = AppConfig()
         self.feeds: List[RSSFeed] = []
-
+        
         # Track if loaded
         self._is_loaded = False
         self._last_loaded: Optional[datetime] = None
+
 
     # ═══════════════════════════════════════════════════════════════════════════
     # CORE LOAD/SAVE OPERATIONS
@@ -108,6 +106,15 @@ class ConfigManager:
                 with open(self.config_path, "r", encoding="utf-8") as f:
                     config_data = json.load(f)
                 self.app_config = AppConfig(**config_data)
+
+                # Sync Sheet Name/ID from Config
+                if hasattr(self.app_config, "google_sheet_name"):
+                     self.sheets_manager.sheet_name = self.app_config.google_sheet_name
+                if hasattr(self.app_config, "google_sheet_id") and self.app_config.google_sheet_id:
+                     self.sheets_manager.sheet_id = self.app_config.google_sheet_id
+                
+                self.sheets_manager._connect_if_possible()
+
                 logger.info(f"✅ Loaded config from {self.config_path}")
             elif create_if_missing:
                 if self.DEFAULT_CONFIG_EXAMPLE_PATH.exists():
@@ -517,6 +524,60 @@ class ConfigManager:
     # ═══════════════════════════════════════════════════════════════════════════
     # SCHEDULE UPDATES
     # ═══════════════════════════════════════════════════════════════════════════
+
+    def load_feeds(self) -> List[RSSFeed]:
+        """
+        Load RSS feeds from JSON.
+        Optionally, if Sheets API is connected, merge/sync/override with feeds from the Sheet.
+        """
+        try:
+            # 1. Load from file
+            if not self.feeds_path.exists():
+                logger.warning(
+                    f"⚠️ Feeds file not found at {self.feeds_path}. Starting with empty list."
+                )
+                self.feeds = []
+            else:
+                with open(self.feeds_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.feeds = [RSSFeed(**feed) for feed in data]
+                logger.info(f"✅ Loaded {len(self.feeds)} RSS feeds from file.")
+
+            # 2. Try to sync from Google Sheets (if active)
+            if self.sheets_manager.is_connected():
+                sheet_feeds = self.sheets_manager.fetch_feeds()
+                if sheet_feeds:
+                    logger.info(f"🔄 Merging {len(sheet_feeds)} feeds from Google Sheet...")
+                    
+                    # Convert sheet dicts to RSSFeed objects (basic conversion)
+                    sheet_feed_objects = []
+                    for sf in sheet_feeds:
+                        try:
+                            # Map defaults if missing
+                            new_feed = RSSFeed(
+                                url=sf['url'],
+                                name=sf['name'],
+                                category=sf['category'],
+                                enabled=True,
+                                fetch_interval=60
+                            )
+                            sheet_feed_objects.append(new_feed)
+                        except Exception as e:
+                            logger.warn(f"⚠️ Skipped invalid feed from sheet: {sf} Error: {e}")
+                    
+                    # Simple merge strategy: Append non-duplicates based on URL
+                    existing_urls = {f.url for f in self.feeds}
+                    for sf in sheet_feed_objects:
+                        if sf.url not in existing_urls:
+                            self.feeds.append(sf)
+                            existing_urls.add(sf.url) # Prevent dupes within the loop
+                    
+                    logger.info(f"✅ Total feeds after Sheet sync: {len(self.feeds)}")
+
+            return self.feeds
+        except Exception as e:
+            logger.error(f"❌ Error loading feeds: {e}")
+            return []
 
     def update_schedule(
         self,

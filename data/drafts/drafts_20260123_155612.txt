@@ -1,0 +1,54 @@
+Title: Claude Code costs up to $200 a month. Goose does the same thing for free.
+Blogger: https://www.robovai.tech/
+Dev.to: -
+
+============================================================
+LinkedIn
+============================================================
+انطلقت ثورة الذكاء الاصطناعي في مجال البرمجة، ولكن معها جاءت التكلفة الباهظة. 
+
+• يتراوح سعر Claude Code، العامل الذكي لكتابة وتصحيح ونشر الشفرات البرمجية بشكل مستقل، بين 20 إلى 200 دولار شهريًا حسب الاستخدام.
+• هذا أثار استياءً بين المبرمجين الذين يهدف إلى خدمتهم، حيث يبحثون عن بدائل اقتصادية.
+• في المقابل، ظهرت بدائل مجانية مثل Goose، العامل الذكي مفتوح المصدر من Block، الذي يقدم نفس الخدمات بدون تكلفة.
+• يفتح هذا المنافسة أمام مطورين آخرين لإعادة التفكير في نماذج التسعير الخاصة بهم.
+
+هذا يعني أنه بالنسبة لمطوري البرمجيات والفرق، هناك خيارات جديدة يجب مراعاتها لتحسين كفاءة العمل وتقليل التكاليف. 
+
+اقرأ المقال كاملًا لمعرفة المزيد: https://www.robovai.tech/
+
+============================================================
+Short Video Script
+============================================================
+Here is a script for a 30-45 second video:
+
+**0-3s Hook**
+[Visual cue: Fast-paced coding footage with a red "expensive" stamp on it]
+Narrator: "AI coding just got a price tag... and it's steep!"
+
+**3-25s Body**
+[Visual cue: Claude Code logo appears, followed by a "$200" price tag]
+Narrator: "Claude Code, the AI coding revolution, can cost up to $200 a month."
+[Visual cue: Cut to a frustrated developer at a computer]
+Narrator: "But what if you could get the same AI power for free?"
+[Visual cue: Goose logo appears, with a "free" tag]
+Narrator: "Meet Goose, the open-source AI agent that's giving Claude Code a run for its money."
+
+**25-40s CTA**
+[Visual cue: Cut to a computer screen with the Goose website on it: robovai.tech]
+Narrator: "Try Goose for free at robovai.tech. Revolutionize your coding without breaking the bank."
+[Visual cue: End screen with the Goose logo and the website URL]
+
+This script is designed to be concise, engaging, and informative, with a clear call-to-action at the end. The visual cues are simple and help to illustrate the points being made.
+
+============================================================
+Reddit
+============================================================
+**The Dark Side of AI-Powered Coding: Expensive Solutions vs. Free Alternatives**
+
+The AI coding revolution is here, but it's coming with a hefty price tag. Claude Code, a terminal-based AI agent that can write, debug, and deploy code autonomously, has gained popularity among software developers. However, its pricing model, ranging from $20 to $200 per month, is sparking controversy.
+
+For those who don't want to break the bank, a free alternative is gaining traction. Goose, an open-source AI agent developed by Block, offers similar functionality without the cost. This raises questions about the sustainability of paid AI coding solutions and whether they're worth the investment.
+
+**TL;DR:** Claude Code costs up to $200/month, while Goose offers similar AI-powered coding capabilities for free.
+
+Is it worth paying top dollar for AI-powered coding tools, or can free alternatives like Goose meet your needs?
