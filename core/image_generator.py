@@ -141,14 +141,14 @@ class DesignConfig:
 
     # Typography settings
     # Bigger by default for social readability.
-    title_font_size: int = 70
-    hook_font_size: int = 40
+    title_font_size: int = 53
+    hook_font_size: int = 30
     title_max_width: int = 980  # Max width before wrapping
     # Default layout target: 1-2 title lines + 0-1 hook line (social friendly)
     max_title_lines: int = 3
     max_hook_lines: int = 1
-    min_title_font_size: int = 50
-    min_hook_font_size: int = 30
+    min_title_font_size: int = 38
+    min_hook_font_size: int = 23
 
     # Text effects (readability on any background)
     text_shadow: bool = True
