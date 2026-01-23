@@ -141,8 +141,8 @@ class DesignConfig:
 
     # Typography settings
     # Bigger by default for social readability.
-    title_font_size: int = 53
-    hook_font_size: int = 30
+    title_font_size: int = 40
+    hook_font_size: int = 20
     title_max_width: int = 980  # Max width before wrapping
     # Default layout target: 1-2 title lines + 0-1 hook line (social friendly)
     max_title_lines: int = 3
@@ -212,7 +212,9 @@ class ImageGenerator:
     4. Subtle geometric art for visual interest
     """
 
-    def __init__(self, imgbb_api_key: Optional[str] = None, config: Optional[object] = None):
+    def __init__(
+        self, imgbb_api_key: Optional[str] = None, config: Optional[object] = None
+    ):
         """
         Initialize the image generator.
 
@@ -224,8 +226,14 @@ class ImageGenerator:
         self.config = DesignConfig()
 
         # Optional config-driven overrides (dashboard/config.json)
-        self._app_config = getattr(config, "app_config", None) if config is not None else None
-        self._poster_cfg = getattr(self._app_config, "poster", None) if self._app_config is not None else None
+        self._app_config = (
+            getattr(config, "app_config", None) if config is not None else None
+        )
+        self._poster_cfg = (
+            getattr(self._app_config, "poster", None)
+            if self._app_config is not None
+            else None
+        )
 
         # Round-robin indexes for multi-key pools
         self._groq_key_index = 0
@@ -247,7 +255,9 @@ class ImageGenerator:
             return
 
         try:
-            if hasattr(self._poster_cfg, "enabled") and not bool(getattr(self._poster_cfg, "enabled")):
+            if hasattr(self._poster_cfg, "enabled") and not bool(
+                getattr(self._poster_cfg, "enabled")
+            ):
                 return
         except Exception:
             return
@@ -488,7 +498,9 @@ class ImageGenerator:
 
             blur = float((os.getenv("LOCAL_BACKGROUNDS_BLUR") or "0").strip() or 0)
             if blur > 0:
-                bg = bg.filter(ImageFilter.GaussianBlur(radius=min(20.0, max(0.0, blur))))
+                bg = bg.filter(
+                    ImageFilter.GaussianBlur(radius=min(20.0, max(0.0, blur)))
+                )
 
             dim = float((os.getenv("LOCAL_BACKGROUNDS_DIM") or "0").strip() or 0)
             if dim > 0:
@@ -520,8 +532,16 @@ class ImageGenerator:
     def _maybe_prefix_emoji(
         self, title: str, hook: Optional[str], profile: "TopicProfile"
     ) -> tuple[str, Optional[str]]:
-        cfg_enabled = getattr(self._poster_cfg, "auto_emoji_title", None) if self._poster_cfg is not None else None
-        enabled = bool(cfg_enabled) if cfg_enabled is not None else self._env_flag("AUTO_EMOJI_TITLE", "1")
+        cfg_enabled = (
+            getattr(self._poster_cfg, "auto_emoji_title", None)
+            if self._poster_cfg is not None
+            else None
+        )
+        enabled = (
+            bool(cfg_enabled)
+            if cfg_enabled is not None
+            else self._env_flag("AUTO_EMOJI_TITLE", "1")
+        )
         if not enabled:
             return title, hook
 
@@ -545,22 +565,42 @@ class ImageGenerator:
         if not text:
             return image
 
-        cfg_opacity = getattr(self._poster_cfg, "watermark_opacity", None) if self._poster_cfg is not None else None
+        cfg_opacity = (
+            getattr(self._poster_cfg, "watermark_opacity", None)
+            if self._poster_cfg is not None
+            else None
+        )
         try:
-            opacity = float(cfg_opacity) if cfg_opacity is not None else float((os.getenv("IMAGE_WATERMARK_OPACITY") or "0.33").strip() or 0.33)
+            opacity = (
+                float(cfg_opacity)
+                if cfg_opacity is not None
+                else float(
+                    (os.getenv("IMAGE_WATERMARK_OPACITY") or "0.33").strip() or 0.33
+                )
+            )
         except Exception:
             opacity = 0.33
         opacity = min(0.9, max(0.05, opacity))
 
-        cfg_size = getattr(self._poster_cfg, "watermark_font_size", None) if self._poster_cfg is not None else None
+        cfg_size = (
+            getattr(self._poster_cfg, "watermark_font_size", None)
+            if self._poster_cfg is not None
+            else None
+        )
         try:
-            font_size = int(cfg_size) if cfg_size is not None else int((os.getenv("IMAGE_WATERMARK_FONT_SIZE") or "18").strip() or 18)
+            font_size = (
+                int(cfg_size)
+                if cfg_size is not None
+                else int((os.getenv("IMAGE_WATERMARK_FONT_SIZE") or "18").strip() or 18)
+            )
         except Exception:
             font_size = 18
         font_size = max(10, min(36, font_size))
 
         processed = self._process_arabic_text(text)
-        font = self._get_font("arabic" if self._contains_arabic(text) else "hook", font_size)
+        font = self._get_font(
+            "arabic" if self._contains_arabic(text) else "hook", font_size
+        )
         overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay, "RGBA")
 
@@ -596,8 +636,18 @@ class ImageGenerator:
             draw.rectangle((x1, y1, x2, y2), fill=(0, 0, 0, bg_alpha))
 
         # Slight shadow
-        draw.text((x1 + pad_x + 1, y1 + pad_y + 1), processed, font=font, fill=(0, 0, 0, txt_alpha))
-        draw.text((x1 + pad_x, y1 + pad_y), processed, font=font, fill=(255, 255, 255, txt_alpha))
+        draw.text(
+            (x1 + pad_x + 1, y1 + pad_y + 1),
+            processed,
+            font=font,
+            fill=(0, 0, 0, txt_alpha),
+        )
+        draw.text(
+            (x1 + pad_x, y1 + pad_y),
+            processed,
+            font=font,
+            fill=(255, 255, 255, txt_alpha),
+        )
 
         return Image.alpha_composite(image, overlay)
 
@@ -734,6 +784,7 @@ class ImageGenerator:
         """
         Get a font object, with fallback to default if not found.
         """
+
         def try_load(path: str) -> Optional[ImageFont.FreeTypeFont]:
             try:
                 return ImageFont.truetype(path, size)
@@ -1483,11 +1534,15 @@ class ImageGenerator:
                 return fill
             return (fill[0], fill[1], fill[2], 255)
 
-        def draw_runs(at_x: int, at_y: int, fill: Tuple[int, int, int] | Tuple[int, int, int, int]):
+        def draw_runs(
+            at_x: int, at_y: int, fill: Tuple[int, int, int] | Tuple[int, int, int, int]
+        ):
             fill_rgba = _normalize_fill(fill)
             if PILMOJI_AVAILABLE:
                 with Pilmoji(image) as pilmoji:
-                    pilmoji.text((at_x, at_y), processed_text, font=font, fill=fill_rgba)
+                    pilmoji.text(
+                        (at_x, at_y), processed_text, font=font, fill=fill_rgba
+                    )
                 return
 
             # If no emoji font (or no emoji), draw normally.
@@ -1644,7 +1699,11 @@ class ImageGenerator:
         ):
             processed = self._process_arabic_text(line)
             w = self._measure_text_width(processed, font)
-            align = (getattr(self.config, "text_align", "center") or "center").strip().lower()
+            align = (
+                (getattr(self.config, "text_align", "center") or "center")
+                .strip()
+                .lower()
+            )
             if align == "right":
                 return x2 - w
             return x1 + ((x2 - x1) - w) // 2
@@ -1830,9 +1889,9 @@ class ImageGenerator:
             # Smaller box to show more background
             card_box = (
                 margin + 60,
-                180,
+                140,  # Moved higher up to give more vertical space
                 self.config.width - (margin + 60),
-                self.config.height - 180,
+                self.config.height - 140,  # Taller box overall (less bottom margin)
             )
             image = self._add_glass_card(image, card_box, accent_color)
 
@@ -1843,7 +1902,7 @@ class ImageGenerator:
                     profile.badge_text,
                     profile.badge_emoji,
                     x=card_x1 + 30,
-                    y=card_y1 + 26,
+                    y=card_y1 + 26, # Keep badge relative to top
                     accent_color=accent_color,
                 )
 
@@ -1919,7 +1978,11 @@ class ImageGenerator:
         # LAYER 7: Branding (Optional watermark)
         # ═══════════════════════════════════════════════════════════════════
         cfg_watermark_text = (
-            (getattr(self._poster_cfg, "watermark_text", "") if self._poster_cfg is not None else "")
+            (
+                getattr(self._poster_cfg, "watermark_text", "")
+                if self._poster_cfg is not None
+                else ""
+            )
             or ""
         ).strip()
 
@@ -1931,9 +1994,7 @@ class ImageGenerator:
         )
         if watermark_enabled:
             watermark_text = (
-                cfg_watermark_text
-                if cfg_watermark_text
-                else env_watermark_text
+                cfg_watermark_text if cfg_watermark_text else env_watermark_text
             )
             if watermark_text:
                 image = self._add_watermark(image, watermark_text)
