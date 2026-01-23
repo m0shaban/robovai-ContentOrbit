@@ -159,11 +159,11 @@ class DesignConfig:
     text_align: str = "center"  # center|right
 
     # Overlay settings
-    overlay_opacity: float = 0.55  # 0.0 to 1.0
+    overlay_opacity: float = 0.25  # Lower opacity to show background better
 
     # Glass card settings (for templates)
-    card_opacity: int = 90  # 0..255
-    card_blur_radius: int = 10
+    card_opacity: int = 60  # More transparent
+    card_blur_radius: int = 0  # No blur
     card_radius: int = 28
     card_padding_x: int = 30
     card_padding_y: int = 25
@@ -1006,9 +1006,10 @@ class ImageGenerator:
 
         x1, y1, x2, y2 = box
         region = image.crop((x1, y1, x2, y2))
-        region = region.filter(
-            ImageFilter.GaussianBlur(radius=self.config.card_blur_radius)
-        )
+        # Disabled blur to keep background clear
+        # region = region.filter(
+        #    ImageFilter.GaussianBlur(radius=self.config.card_blur_radius)
+        # )
         image.paste(region, (x1, y1))
 
         overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
@@ -1826,11 +1827,12 @@ class ImageGenerator:
 
         else:
             # Default HERO_CARD
+            # Smaller box to show more background
             card_box = (
-                margin,
-                105,
-                self.config.width - margin,
-                self.config.height - 125,
+                margin + 60,
+                180,
+                self.config.width - (margin + 60),
+                self.config.height - 180,
             )
             image = self._add_glass_card(image, card_box, accent_color)
 
