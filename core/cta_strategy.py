@@ -56,12 +56,24 @@ class PlatformLinks:
     blogger_url: Optional[str] = None
     facebook_url: Optional[str] = None
     telegram_url: Optional[str] = None
-    # Public hubs/pages (can be overridden by passing PlatformLinks into CTAStrategy)
-    telegram_channel: str = "@robovai_hub"  # channel username (without https://t.me/)
+
+    # Public hubs/pages
+    telegram_channel: str = "@robovai_hub"
     telegram_hub_url: str = "https://t.me/robovai_hub"
     facebook_page: str = "https://www.facebook.com/robovaisolutions"
     devto_profile: str = "https://dev.to/mohamedshabanai/"
     blogger_home: str = "https://www.robovai.tech/"
+    whatsapp_url: str = "https://wa.me/201234567890"  # Update with actual number
+
+    # Personal Branding & Community
+    personal_site: str = "https://moshaban.me"
+    community_chat: str = "https://t.me/robovai_chat"
+
+    # RoboVAI Ecosystem
+    academy_url: str = "https://academy.robovai.tech"
+    bot_url: str = "https://bot.robovai.tech"
+    junior_url: str = "https://junior.robovai.tech"
+    core_url: str = "https://core.robovai.tech"
 
 
 class CTAStrategy:
@@ -95,28 +107,59 @@ class CTAStrategy:
     ) -> str:
         """
         Generate CTA for Blogger articles (Arabic).
-
-        Strategy:
-        - Blogger is the Arabic content hub
-        - Drive readers to Telegram for updates
-        - Mention Dev.to for English version
-        - Encourage social sharing
+        Strategy: "The Professional Friend" - Ecosystem Integration.
         """
 
         telegram_url = self.links.telegram_hub_url
         facebook_url = self.links.facebook_page
+        personal_site = self.links.personal_site
+
+        # RoboVAI Platforms
+        academy = self.links.academy_url
+        bot = self.links.bot_url
+        junior = self.links.junior_url
+        core = self.links.core_url
 
         cta_html = f"""
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 15px; margin: 40px 0; direction: rtl;">
+<div style="background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%); padding: 40px; border-radius: 15px; margin: 50px 0; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
     
-    <!-- Main CTA Section -->
-    <div style="text-align: center; margin-bottom: 25px;">
-        <h3 style="color: #ffffff; font-size: 24px; margin: 0 0 10px 0;">
-            ✨ أعجبك المقال؟ لا تفوّت القادم!
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 35px;">
+        <h3 style="color: #ffffff; font-size: 28px; margin: 0 0 10px 0; font-weight: 800;">
+            🚀 الفرصة بتيجي للي جاهز لها.. وأنا هنا عشان أساعدك
         </h3>
-        <p style="color: rgba(255,255,255,0.9); font-size: 16px; margin: 0;">
-            انضم لآلاف المتابعين واحصل على أحدث المقالات التقنية
+        <p style="color: #a0aec0; font-size: 18px; margin: 0;">
+            التحول الرقمي مش مجرد كلام، دي خطوات عملية بنبنيها سوا في RoboVAI
         </p>
+    </div>
+    
+    <!-- RoboVAI Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 35px;">
+        
+        <a href="{academy}" target="_blank" style="text-decoration: none; text-align: center; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; transition: transform 0.2s; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-size: 30px; margin-bottom: 10px;">🎓</div>
+            <div style="color: white; font-weight: bold; margin-bottom: 5px;">RoboVAI Academy</div>
+            <div style="color: #a0aec0; font-size: 12px;">كيريرك في الـ AI يبدأ هنا</div>
+        </a>
+
+        <a href="{bot}" target="_blank" style="text-decoration: none; text-align: center; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; transition: transform 0.2s; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-size: 30px; margin-bottom: 10px;">🤖</div>
+            <div style="color: white; font-weight: bold; margin-bottom: 5px;">RoboVAI Bot</div>
+            <div style="color: #a0aec0; font-size: 12px;">أتمتة أعمالك بذكاء</div>
+        </a>
+
+        <a href="{junior}" target="_blank" style="text-decoration: none; text-align: center; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; transition: transform 0.2s; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-size: 30px; margin-bottom: 10px;">🧒</div>
+            <div style="color: white; font-weight: bold; margin-bottom: 5px;">RoboVAI Junior</div>
+            <div style="color: #a0aec0; font-size: 12px;">علّم أولادك لغة المستقبل</div>
+        </a>
+
+        <a href="{core}" target="_blank" style="text-decoration: none; text-align: center; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; transition: transform 0.2s; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-size: 30px; margin-bottom: 10px;">⚙️</div>
+            <div style="color: white; font-weight: bold; margin-bottom: 5px;">RoboVAI Core</div>
+            <div style="color: #a0aec0; font-size: 12px;">حلول المصانع والشركات</div>
+        </a>
+
     </div>
     
     <!-- Platform Buttons -->
@@ -129,57 +172,30 @@ class CTAStrategy:
                   border-radius: 50px; text-decoration: none; font-weight: bold;
                   transition: transform 0.2s; box-shadow: 0 4px 15px rgba(0,136,204,0.4);">
             <span style="font-size: 20px;">📱</span>
-            تابعنا على تيليجرام
+            مجتمع تيليجرام
         </a>
         
-        <!-- Facebook Button -->
-        <a href="{facebook_url}" target="_blank"
+        <!-- Personal Site Button -->
+        <a href="{personal_site}" target="_blank"
            style="display: inline-flex; align-items: center; gap: 8px;
-                  background: #1877f2; color: white; padding: 12px 24px;
+                  background: #2d3748; color: white; padding: 12px 24px;
                   border-radius: 50px; text-decoration: none; font-weight: bold;
-                  transition: transform 0.2s; box-shadow: 0 4px 15px rgba(24,119,242,0.4);">
-            <span style="font-size: 20px;">👍</span>
-            تابعنا على فيسبوك
+                  transition: transform 0.2s; border: 1px solid rgba(255,255,255,0.2);">
+            <span style="font-size: 20px;">👤</span>
+            من هو محمد شعبان؟
         </a>
         
     </div>
+</div>
 """
 
         # Add Dev.to link if available (for English version)
         if devto_url:
             cta_html += f"""
-    <!-- English Version Link -->
-    <div style="text-align: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
-        <p style="color: rgba(255,255,255,0.8); font-size: 14px; margin: 0 0 10px 0;">
-            🌍 تفضل القراءة بالإنجليزية؟
-        </p>
-        <a href="{devto_url}" target="_blank"
-           style="display: inline-flex; align-items: center; gap: 8px;
-                  background: rgba(255,255,255,0.15); color: white; padding: 10px 20px;
-                  border-radius: 25px; text-decoration: none; font-size: 14px;
-                  border: 1px solid rgba(255,255,255,0.3);">
-            <span>🔗</span>
-            Read in English on Dev.to
-        </a>
-    </div>
-"""
-
-        cta_html += """
-    <!-- Share Section -->
-    <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
-        <p style="color: rgba(255,255,255,0.7); font-size: 13px; margin: 0;">
-            📤 شارك المقال مع أصدقائك المهتمين بالتكنولوجيا
-        </p>
-    </div>
-    
-</div>
-
-<!-- Engagement Prompt -->
-<div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border-right: 4px solid #667eea; direction: rtl; margin: 20px 0;">
-    <p style="margin: 0; color: #333; font-size: 15px;">
-        💬 <strong>ما رأيك؟</strong> شاركنا أفكارك في التعليقات أدناه! 
-        نحب نسمع منك ونتناقش في المواضيع التقنية.
-    </p>
+<div style="text-align: center; margin-top: 20px;">
+    <a href="{devto_url}" target="_blank" style="color: #666; text-decoration: none; font-size: 14px;">
+        🌍 Prefer English? Read this article on Dev.to
+    </a>
 </div>
 """
 
@@ -249,30 +265,38 @@ If you found this helpful, here's how you can support:
     ) -> str:
         """
         Generate Facebook post with CTA to Blogger.
-
-        Strategy:
-        - Facebook is for social engagement
-        - Short, catchy teaser
-        - Strong CTA to read full article on Blogger
-        - Hashtags for discovery
+        Strategy: "The Professional Friend" - First person, relatable, smart CTA.
         """
 
         telegram_url = self.links.telegram_hub_url
+        whatsapp_url = self.links.whatsapp_url
+        personal_site = self.links.personal_site
+        community_chat = self.links.community_chat
 
         post = f"""{emoji} {title}
 
 {hook}
 
-📖 اقرأ المقال كاملاً:
+أنا بقولك: التحول الرقمي بيبدأ بخطوة بسيطة، والفرصة بتيجي للي جاهز لها. الموضوع مش رفاهية، ده تأمين لمستقبل شركتك في سوق مبيستناش حد. 🇪🇬🏭
+
+📖 شوف التفاصيل كاملة هنا:
 👇👇👇
 {blogger_url}
 
 ━━━━━━━━━━━━━━━━━━━━
 
-    💬 قولنا رأيك في الكومنتات 👇
-    📣 للمزيد (وتحديثات أول بأول): {telegram_url}
+محتاج مساعدة تبدأ أول خطوة في تحول شركتك الرقمي؟
+تواصل معايا مباشرة لنقاش تقني يغير مسار شغلك: {whatsapp_url}
 
-#تقنية #تكنولوجيا #برمجة #ذكاء_اصطناعي #RoboVAI #ContentOrbit"""
+أو خد فكرة عن مشاريعنا وقدراتنا من هنا:
+🌐 {personal_site}
+
+📣 تابعني على التليجرام عشان ميفوتكش الأدوات المجانية:
+{telegram_url}
+
+للنقاشات التقنية، انضم لجروبنا: {community_chat}
+
+#TechnoEgypt #SMEs #DigitalTransformation #RoboVAI"""
 
         return post
 
@@ -281,36 +305,37 @@ If you found this helpful, here's how you can support:
     ) -> str:
         """
         Generate engaging Facebook post with bullet points.
-
-        Strategy:
-        - List format for easy scanning
-        - Creates curiosity
-        - Strong call to action
+        Strategy: "The Professional Friend" - Value first.
         """
 
         points_text = "\n".join([f"✅ {point}" for point in key_points[:5]])
 
         telegram_url = self.links.telegram_hub_url
+        whatsapp_url = self.links.whatsapp_url
+        personal_site = self.links.personal_site
 
         post = f"""🚀 {title}
 
-في هذا المقال ستتعلم:
+من كتر ما شوفت شركات بتضيع وقت وفلوس، حبيت أشاركك الخلاصة دي:
 
 {points_text}
 
-وأكثر من ذلك بكثير! 📚
+في الأول والآخر، التكنولوجيا معمولة عشان تخدمنا مش تعقدنا. 
 
 ━━━━━━━━━━━━━━━━━━━━
 
-🔗 اقرأ المقال كاملاً الآن:
+🔗 اقرأ المقال الكامل عشان تفهم الصورة الأكبر:
 {blogger_url}
 
-❤️ أعجبك المحتوى؟ 
-→ تابع الصفحة
-→ شارك مع أصدقائك
-→ انضم لقناة التليجرام: {telegram_url}
+لو شايف إن الكلام ده مفيد لبيزنس صاحبك، اعمله منشن.
+وتابعني هنا لمحتوى يومي بيغير طريقة تفكيرك.
 
-#تعلم #تطوير #برمجة #تقنية"""
+محتاج استشارة خاصة لمشروعك؟
+📞 {whatsapp_url}
+
+اعرف أكتر عن اللي بنقدمه: {personal_site}
+
+#تطوير #صناعة #RoboVAI"""
 
         return post
 
@@ -328,53 +353,47 @@ If you found this helpful, here's how you can support:
     ) -> str:
         """
         Generate Telegram message with all platform links.
-
-        Strategy:
-        - Telegram is the NEWS HUB
-        - Links to ALL platforms
-        - Quick summary with key points
-        - Easy to share format
+        Strategy: Technical Value + "The Professional Friend" signature.
         """
 
         telegram_url = self.links.telegram_hub_url
-        facebook_url = self.links.facebook_page
+        personal_site = self.links.personal_site
+        community_chat = self.links.community_chat
 
-        # Telegram UX: short lines, clear sections, Egyptian Arabic tone.
+        # Telegram UX: concise, technical, direct value.
         safe_title = title
         safe_summary = summary
 
         message = (
-            "📣 <b>نزلنا محتوى جديد!</b>\n\n"
+            "🚀 <b>Technical Update</b>\n\n"
             f"<b>{safe_title}</b>\n\n"
             f"{safe_summary}\n\n"
         )
 
         # Add key points if provided
         if key_points:
-            message += "\n<b>📌 أهم النقاط:</b>\n"
+            message += "\n<b>🛠️ Key Technical Insights:</b>\n"
             for point in key_points[:4]:
                 message += f"• {point}\n"
             message += "\n"
 
         # Links section
         message += "━━━━━━━━━━━━━━━━━━━━\n\n"
-        message += "🔗 <b>الروابط:</b>\n"
+        message += "👇 <b>Get the Full Solution:</b>\n"
 
         if blogger_url:
-            message += f'• 🇪🇬 <a href="{blogger_url}">اقرأ المقال بالعربي</a>\n'
+            message += f'• 📑 <a href="{blogger_url}">Strategy Guide (Arabic)</a>\n'
 
         if devto_url:
-            message += f'• 🌍 <a href="{devto_url}">نسخة إنجليزي (Dev.to)</a>\n'
+            message += f'• 💻 <a href="{devto_url}">Technical Breakdown (Dev.to)</a>\n'
 
-        message += f'• 📣 <a href="{telegram_url}">تابع القناة على تيليجرام</a>\n'
-        message += f'• 👍 <a href="{facebook_url}">صفحتنا على فيسبوك</a>\n\n'
+        message += f'\n💬 <a href="{community_chat}">Discuss with Tech Community</a>\n'
+        message += f'👤 <a href="{personal_site}">About Mohamed Shaban</a>\n\n'
 
         # Engagement CTA
         message += (
-            "━━━━━━━━━━━━━━━━━━━━\n\n"
-            "💬 <b>سؤال سريع:</b> إيه أكتر نقطة شدتّك؟\n"
-            "📤 لو شايفه مفيد… ابعته لحد مهتم 👌\n\n"
-            "#RoboVAI #تقنية #محتوى_جديد"
+            "<i>Need technical implementation? DM me.</i>\n"
+            "#RoboVAI #DigitalTransformation #Tech"
         )
 
         return message

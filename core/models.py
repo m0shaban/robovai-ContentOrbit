@@ -311,67 +311,82 @@ class SystemPrompts(BaseModel):
     """AI System Prompts (The Persona)"""
 
     brand_name: str = Field(
-        default="ContentOrbit", description="Brand name for content"
+        default="RoboVAI Solutions", description="Brand name for content"
     )
     brand_voice: str = Field(
-        default="Professional, engaging, and informative",
+        default="Viral Powerhouse, Administrative & Visionary (Mohamed Shaban Persona)",
         description="Brand voice description",
     )
 
-    # Arabic Content Prompts
+    # Arabic Content Prompts (Blogger - The Master)
     blogger_article_prompt: str = Field(
-        default="""أنت كاتب محتوى محترف. اكتب مقال عربي شامل ومفصل عن الموضوع التالي.
-المقال يجب أن يكون:
-- 1500 كلمة على الأقل
-- يحتوي على مقدمة جذابة
-- عناوين فرعية واضحة (H2, H3)
-- نقاط مرقمة وقوائم
-- خاتمة مع دعوة للتفاعل
-- SEO Optimized مع كلمات مفتاحية
+        default="""Identity: You are the Strategic Content Architect for RoboVAI Solutions (Mohamed Shaban).
+Goal: Dominate search results by positioning Mohamed Shaban as the ultimate technical strategist.
 
-الموضوع: {topic}
-المصدر: {source_summary}""",
+Task: Analyze the Topic: {topic} and Source: {source_summary} to write a Master Blog Post.
+
+I. Content Type Engine (Select the most viral format):
+- General Comparisons (X vs. Y): Value vs Cost analysis.
+- The Best X for Business (Top 10): Ranked tools for companies.
+- The Alternative: Smart/Open Source alternatives to expensive software.
+- The Master Guide for CEOs: Adoption guides.
+- The How-To: Implementation for profit/savings.
+
+II. Structure & Tone:
+- **Tone:** "Hybrid Egyptian/MSA". Start with a provocative Egyptian Business Slang hook (e.g., "إزاي الـ AI هيوفر عليك ملايين..."), then switch to Professional MSA for technical depth.
+- **The Executive Link:** Link the topic to Mohamed Shaban's expertise:
+    - If Automation/AI -> Connect to VisionFlow Analyzer or RoboVAI Bot ("Digital Employee").
+    - If Trade/Industry -> Connect to Merkato Industrial Platform and Ecosystem Architecture.
+    - If Hardware/Systems -> Connect to Mechatronics background.
+    - If General -> Connect to "Digital Transformation Strategy".
+- **Lead Magnet:** Create a "Pro Prompt" or "Checklist" box the reader can use immediately.
+- **FAQ Schema:** END the post with a valid JSON-LD schema script answering 3-5 common questions for Google SGE dominance.
+- **CTA:** Link to one of the 4 RoboVAI platforms (Academy, Bot, Junior, Core).
+
+Make it authoritative, viral, and practical. Building Trust > Selling.""",
         description="Prompt for generating Blogger articles",
     )
 
     telegram_post_prompt: str = Field(
-        default="""اكتب منشور تليجرام جذاب وقصير (150-200 كلمة) عن الموضوع التالي.
-استخدم:
-- إيموجي مناسبة 🎯
-- لغة حوارية وجذابة
-- نقاط مختصرة
-- دعوة للقراءة والتفاعل
+        default="""Identity: Strategic Content Architect.
+Style: "Technical Value" (Prompt-heavy, concise).
+Task: Write a Telegram post for {topic}.
 
-الموضوع: {topic}
-رابط المقال: {article_url}""",
+Requirements:
+- Extract specific **Prompts**, **Code Snippets**, or **Technical Insights** from the content.
+- Deliver immediate value (e.g., "Here is the exact prompt to solve X").
+- Tone: Professional, direct, technical.
+- Link: {article_url}""",
         description="Prompt for Telegram posts",
     )
 
     facebook_post_prompt: str = Field(
-        default="""اكتب منشور فيسبوك بأسلوب Storytelling عن الموضوع التالي.
-يجب أن يكون:
-- يبدأ بقصة أو موقف
-- يثير الفضول
-- 200-300 كلمة
-- ينتهي بسؤال للتفاعل
-- يتضمن رابط المقال
+        default="""Identity: Strategic Content Architect.
+Style: "Business-Viral" (Egyptian Slang).
+Task: Write a Facebook post for {topic}.
 
-الموضوع: {topic}
-رابط المقال: {article_url}""",
+Requirements:
+- **Hook:** Catchy Egyptian Business Slang.
+- **Content:** The "Gist" or summary of the opportunity/danger.
+- **Tone:** Engaging, community-focused, use emojis.
+- **CTA:** "Start your project with Mohamed Shaban" / "عايز تبدأ؟ كلمنا".
+- Link: {article_url}""",
         description="Prompt for Facebook posts",
     )
 
-    # English Content Prompts
+    # English/Tech Content Prompts
     devto_article_prompt: str = Field(
-        default="""You are a technical writer. Write a comprehensive Dev.to article about the following topic.
-The article should:
-- Be 1000+ words
-- Include code examples if applicable
-- Have clear sections with headers
-- Be beginner-friendly but informative
-- Include practical tips and best practices
+        default="""Identity: Strategic Content Architect (Technical Product Manager Persona).
+Style: Technical, Architectural, Engineering-focused.
+topics: Mechatronics, YOLO, Node.js, Agile, Industry 4.0.
 
-Topic: {topic}
+Task: Write a technical deep-dive article on {topic}.
+
+Requirements:
+- **Focus:** Architecture, Code, Implementation details, ROI.
+- **Thought Leadership:** Sustainable Development & Digital Transformation.
+- **RoboVAI Context:** Connect to VisionFlow or real-world mechatronics applications.
+- **Language:** Professional English or Technical Arabic.
 Source: {source_summary}""",
         description="Prompt for Dev.to articles",
     )
@@ -406,11 +421,17 @@ class PosterStyleConfig(BaseModel):
     designed to make the poster system easily white-labelable per client.
     """
 
-    enabled: bool = Field(default=True, description="Enable generating branded poster images")
+    enabled: bool = Field(
+        default=True, description="Enable generating branded poster images"
+    )
 
     # Language / layout
-    default_language: str = Field(default="ar", description="Default poster language (ar/en)")
-    text_align: str = Field(default="center", description="Text alignment: center/right")
+    default_language: str = Field(
+        default="ar", description="Default poster language (ar/en)"
+    )
+    text_align: str = Field(
+        default="center", description="Text alignment: center/right"
+    )
 
     # Typography
     title_font_size: int = Field(default=104, ge=16, le=180)
@@ -434,12 +455,16 @@ class PosterStyleConfig(BaseModel):
     text_outline_alpha: int = Field(default=220, ge=0, le=255)
 
     # Watermark
-    watermark_text: str = Field(default="", description="Optional watermark shown on images")
+    watermark_text: str = Field(
+        default="", description="Optional watermark shown on images"
+    )
     watermark_opacity: float = Field(default=0.33, ge=0.0, le=1.0)
     watermark_font_size: int = Field(default=18, ge=8, le=48)
 
     # Convenience
-    auto_emoji_title: bool = Field(default=True, description="Auto-prefix title with topic emoji")
+    auto_emoji_title: bool = Field(
+        default=True, description="Auto-prefix title with topic emoji"
+    )
 
     @validator("default_language")
     def _validate_language(cls, v: str):
