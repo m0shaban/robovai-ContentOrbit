@@ -62,7 +62,7 @@ class PlatformLinks:
     telegram_hub_url: str = "https://t.me/robovai_hub"
     facebook_page: str = "https://www.facebook.com/robovaisolutions"
     devto_profile: str = "https://dev.to/mohamedshabanai/"
-    blogger_home: str = "https://www.robovai.tech/"
+    blogger_home: str = "https://moshaban.me"
     whatsapp_url: str = "https://wa.me/201234567890"  # Update with actual number
 
     # Personal Branding & Community
@@ -80,7 +80,6 @@ class PlatformLinks:
         for key, value in config.items():
             if hasattr(self, key):
                 setattr(self, key, value)
-
 
 
 class CTAStrategy:
@@ -104,7 +103,7 @@ class CTAStrategy:
 
     def __init__(self, links: Optional[PlatformLinks] = None, config_manager=None):
         self.links = links or PlatformLinks()
-        
+
         # If config manager provided and has sheets connected, sync
         if config_manager and config_manager.sheets_manager.is_connected():
             logger.info("⚡ Syncing CTA Links from Google Sheets...")

@@ -797,7 +797,7 @@ Answer:"""
         """
         src = (article.summary or article.content or "").strip()
         src = re.sub(r"\s+", " ", src)[:1400]
-        blog = blogger_url or "https://www.robovai.tech/"
+        blog = blogger_url or "https://moshaban.me"
         dev = devto_url or ""
 
         # LinkedIn (Arabic w/ English terms)

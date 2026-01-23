@@ -274,7 +274,7 @@ class ContentOrbitBot:
 
                             out = [
                                 f"Title: {result.article.title}",
-                                f"Blogger: {result.blogger_url or 'https://www.robovai.tech/'}",
+                                f"Blogger: {result.blogger_url or 'https://moshaban.me'}",
                                 f"Dev.to: {result.devto_url or '-'}",
                                 "",
                             ]
