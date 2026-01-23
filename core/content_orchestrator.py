@@ -265,19 +265,31 @@ class ContentOrchestrator:
 
             # Save to database
             self._save_published_post(result)
-            
+
             # Log to Google Sheets
             if self.config.sheets_manager.is_connected():
-                self.config.sheets_manager.log_activity({
-                    "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                    "title": result.article.title if result.article else "Unknown",
-                    "source_url": result.article.original_url if result.article else "",
-                    "blogger_link": result.blogger_url or "",
-                    "devto_link": result.devto_url or "",
-                    "facebook_link": str(result.facebook_post_id) if result.facebook_post_id else "",
-                    "telegram_link": str(result.telegram_message_id) if result.telegram_message_id else "",
-                    "status": "Success" if result.success else "Partial/Fail"
-                })
+                self.config.sheets_manager.log_activity(
+                    {
+                        "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                        "title": result.article.title if result.article else "Unknown",
+                        "source_url": (
+                            result.article.original_url if result.article else ""
+                        ),
+                        "blogger_link": result.blogger_url or "",
+                        "devto_link": result.devto_url or "",
+                        "facebook_link": (
+                            str(result.facebook_post_id)
+                            if result.facebook_post_id
+                            else ""
+                        ),
+                        "telegram_link": (
+                            str(result.telegram_message_id)
+                            if result.telegram_message_id
+                            else ""
+                        ),
+                        "status": "Success" if result.success else "Partial/Fail",
+                    }
+                )
 
             logger.info("=" * 60)
             logger.info(f"✅ Pipeline completed in {result.processing_time:.2f}s")

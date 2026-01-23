@@ -26,9 +26,9 @@ ContentOrbit now supports a "Control Room" mode where you can manage feeds, conf
 We have provided CSV templates in the `data/` folder to get you started.
 
 1. **Import `data/google_sheet_template_config.csv`** into the **Configuration** tab.
-   - *File > Import > Upload > Select file > Replace current sheet*
+   - _File > Import > Upload > Select file > Replace current sheet_
 2. **Import `data/google_sheet_template_feeds.csv`** into the **Feeds** tab.
-   - *This contains 200+ curated tech sources!*
+   - _This contains 200+ curated tech sources!_
 3. **Import `data/google_sheet_template_logs.csv`** into the **Logs** tab.
 
 ## 4. Connect the Bot
@@ -44,9 +44,11 @@ We have provided CSV templates in the `data/` folder to get you started.
 ## 5. Verify
 
 Run the bot in test mode:
+
 ```bash
 python unified_bot.py --test-mode
 ```
+
 You should see output indicating it successfully connected to the Google Sheet.
 
 ## 🔄 Dynamic Updates

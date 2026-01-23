@@ -56,35 +56,38 @@ class ConfigManager:
         Path(__file__).parent.parent / "data" / "config.example.json"
     )
     DEFAULT_FEEDS_PATH = Path(__file__).parent.parent / "data" / "feeds.json"
-    SERVICE_ACCOUNT_PATH = Path(__file__).parent.parent / "data" / "service_account.json"
+    SERVICE_ACCOUNT_PATH = (
+        Path(__file__).parent.parent / "data" / "service_account.json"
+    )
 
     def __init__(
         self, config_path: Optional[Path] = None, feeds_path: Optional[Path] = None
     ):
         """
         Initialize ConfigManager.
-        
+
         Args:
            config_path (Path, optional): Path to config.json. Defaults to data/config.json.
            feeds_path (Path, optional): Path to feeds.json. Defaults to data/feeds.json.
         """
         self.config_path = config_path or self.DEFAULT_CONFIG_PATH
         self.feeds_path = feeds_path or self.DEFAULT_FEEDS_PATH
-        
+
         # Initialize Google Sheets Manager
-        self.sheets_manager = GoogleSheetsManager(key_path=str(self.SERVICE_ACCOUNT_PATH))
+        self.sheets_manager = GoogleSheetsManager(
+            key_path=str(self.SERVICE_ACCOUNT_PATH)
+        )
 
         # Ensure data directory exists
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Initialize with defaults
         self.app_config: AppConfig = AppConfig()
         self.feeds: List[RSSFeed] = []
-        
+
         # Track if loaded
         self._is_loaded = False
         self._last_loaded: Optional[datetime] = None
-
 
     # ═══════════════════════════════════════════════════════════════════════════
     # CORE LOAD/SAVE OPERATIONS
@@ -109,10 +112,13 @@ class ConfigManager:
 
                 # Sync Sheet Name/ID from Config
                 if hasattr(self.app_config, "google_sheet_name"):
-                     self.sheets_manager.sheet_name = self.app_config.google_sheet_name
-                if hasattr(self.app_config, "google_sheet_id") and self.app_config.google_sheet_id:
-                     self.sheets_manager.sheet_id = self.app_config.google_sheet_id
-                
+                    self.sheets_manager.sheet_name = self.app_config.google_sheet_name
+                if (
+                    hasattr(self.app_config, "google_sheet_id")
+                    and self.app_config.google_sheet_id
+                ):
+                    self.sheets_manager.sheet_id = self.app_config.google_sheet_id
+
                 self.sheets_manager._connect_if_possible()
 
                 logger.info(f"✅ Loaded config from {self.config_path}")
@@ -547,31 +553,35 @@ class ConfigManager:
             if self.sheets_manager.is_connected():
                 sheet_feeds = self.sheets_manager.fetch_feeds()
                 if sheet_feeds:
-                    logger.info(f"🔄 Merging {len(sheet_feeds)} feeds from Google Sheet...")
-                    
+                    logger.info(
+                        f"🔄 Merging {len(sheet_feeds)} feeds from Google Sheet..."
+                    )
+
                     # Convert sheet dicts to RSSFeed objects (basic conversion)
                     sheet_feed_objects = []
                     for sf in sheet_feeds:
                         try:
                             # Map defaults if missing
                             new_feed = RSSFeed(
-                                url=sf['url'],
-                                name=sf['name'],
-                                category=sf['category'],
+                                url=sf["url"],
+                                name=sf["name"],
+                                category=sf["category"],
                                 enabled=True,
-                                fetch_interval=60
+                                fetch_interval=60,
                             )
                             sheet_feed_objects.append(new_feed)
                         except Exception as e:
-                            logger.warn(f"⚠️ Skipped invalid feed from sheet: {sf} Error: {e}")
-                    
+                            logger.warn(
+                                f"⚠️ Skipped invalid feed from sheet: {sf} Error: {e}"
+                            )
+
                     # Simple merge strategy: Append non-duplicates based on URL
                     existing_urls = {f.url for f in self.feeds}
                     for sf in sheet_feed_objects:
                         if sf.url not in existing_urls:
                             self.feeds.append(sf)
-                            existing_urls.add(sf.url) # Prevent dupes within the loop
-                    
+                            existing_urls.add(sf.url)  # Prevent dupes within the loop
+
                     logger.info(f"✅ Total feeds after Sheet sync: {len(self.feeds)}")
 
             return self.feeds

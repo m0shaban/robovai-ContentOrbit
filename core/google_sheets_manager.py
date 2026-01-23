@@ -8,6 +8,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 class GoogleSheetsManager:
     """
     Manages interactions with Google Sheets to act as a Control Room.
@@ -20,15 +21,29 @@ class GoogleSheetsManager:
 
     SCOPES = [
         "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
+        "https://www.googleapis.com/auth/drive",
     ]
-    
+
     # Standard column names expected in the sheet
     COLS_CONFIG = ["Key", "Value", "Description"]
     COLS_FEEDS = ["Category", "Name", "URL", "Priority", "Active"]
-    COLS_LOGS = ["Date", "Title", "Source URL", "Blogger Link", "Dev.to Link", "Facebook Link", "Telegram Link", "Status"]
+    COLS_LOGS = [
+        "Date",
+        "Title",
+        "Source URL",
+        "Blogger Link",
+        "Dev.to Link",
+        "Facebook Link",
+        "Telegram Link",
+        "Status",
+    ]
 
-    def __init__(self, key_path: str = "service_account.json", sheet_name: str = "ContentOrbit Control Room", sheet_id: Optional[str] = None):
+    def __init__(
+        self,
+        key_path: str = "service_account.json",
+        sheet_name: str = "ContentOrbit Control Room",
+        sheet_id: Optional[str] = None,
+    ):
         self.key_path = key_path
         self.sheet_name = sheet_name
         self.sheet_id = sheet_id
@@ -43,17 +58,23 @@ class GoogleSheetsManager:
             return
 
         try:
-            creds = Credentials.from_service_account_file(self.key_path, scopes=self.SCOPES)
+            creds = Credentials.from_service_account_file(
+                self.key_path, scopes=self.SCOPES
+            )
             self.client = gspread.authorize(creds)
             try:
                 if self.sheet_id:
-                     self.sheet = self.client.open_by_key(self.sheet_id)
-                     logger.info(f"✅ Connected to Google Sheet by ID: {self.sheet_id}")
+                    self.sheet = self.client.open_by_key(self.sheet_id)
+                    logger.info(f"✅ Connected to Google Sheet by ID: {self.sheet_id}")
                 else:
                     self.sheet = self.client.open(self.sheet_name)
-                    logger.info(f"✅ Connected to Google Sheet by Name: {self.sheet_name}")
+                    logger.info(
+                        f"✅ Connected to Google Sheet by Name: {self.sheet_name}"
+                    )
             except gspread.SpreadsheetNotFound:
-                logger.error(f"❌ Spreadsheet not found (ID: {self.sheet_id} | Name: {self.sheet_name}). Please share it with the service account.")
+                logger.error(
+                    f"❌ Spreadsheet not found (ID: {self.sheet_id} | Name: {self.sheet_name}). Please share it with the service account."
+                )
                 self.client = None
         except Exception as e:
             logger.error(f"❌ Google Sheets Connection Error: {str(e)}")
@@ -66,12 +87,16 @@ class GoogleSheetsManager:
         """Reads 'Config' tab and returns key-value pairs."""
         if not self.is_connected():
             return {}
-        
+
         try:
             worksheet = self.sheet.worksheet("Config")
             records = worksheet.get_all_records()
             # Expected format: [{'Key': 'academy_url', 'Value': '...'}, ...]
-            config = {item['Key']: item['Value'] for item in records if item.get('Key') and item.get('Value')}
+            config = {
+                item["Key"]: item["Value"]
+                for item in records
+                if item.get("Key") and item.get("Value")
+            }
             logger.info("✅ Synced Config from Google Sheet")
             return config
         except Exception as e:
@@ -82,19 +107,20 @@ class GoogleSheetsManager:
         """Reads 'Feeds' tab and returns list of feed objects."""
         if not self.is_connected():
             return []
-        
+
         try:
             worksheet = self.sheet.worksheet("Feeds")
             records = worksheet.get_all_records()
             # Filter active feeds
             active_feeds = [
                 {
-                    "category": r.get('Category', 'General'),
-                    "name": r.get('Name', 'Unknown'),
-                    "url": r.get('URL'),
-                    "priority": r.get('Priority', 1)
+                    "category": r.get("Category", "General"),
+                    "name": r.get("Name", "Unknown"),
+                    "url": r.get("URL"),
+                    "priority": r.get("Priority", 1),
                 }
-                for r in records if str(r.get('Active', '')).lower() in ['true', 'yes', '1', 'active']
+                for r in records
+                if str(r.get("Active", "")).lower() in ["true", "yes", "1", "active"]
             ]
             logger.info(f"✅ Synced {len(active_feeds)} Feeds from Google Sheet")
             return active_feeds
@@ -117,7 +143,7 @@ class GoogleSheetsManager:
                 data.get("devto_link", ""),
                 data.get("facebook_link", ""),
                 data.get("telegram_link", ""),
-                data.get("status", "Success")
+                data.get("status", "Success"),
             ]
             worksheet.append_row(row)
             logger.info("✅ Logged activity to Google Sheet")
