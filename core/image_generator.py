@@ -141,14 +141,14 @@ class DesignConfig:
 
     # Typography settings
     # Bigger by default for social readability.
-    title_font_size: int = 85
-    hook_font_size: int = 48
+    title_font_size: int = 70
+    hook_font_size: int = 40
     title_max_width: int = 980  # Max width before wrapping
     # Default layout target: 1-2 title lines + 0-1 hook line (social friendly)
-    max_title_lines: int = 2
+    max_title_lines: int = 3
     max_hook_lines: int = 1
-    min_title_font_size: int = 64
-    min_hook_font_size: int = 34
+    min_title_font_size: int = 50
+    min_hook_font_size: int = 30
 
     # Text effects (readability on any background)
     text_shadow: bool = True
@@ -1847,8 +1847,9 @@ class ImageGenerator:
                     accent_color=accent_color,
                 )
 
-            content_x1 = card_x1 + 44
-            content_x2 = card_x2 - 44
+            # Reduce internal padding to use more space within the smaller box
+            content_x1 = card_x1 + 20
+            content_x2 = card_x2 - 20
             content_width = content_x2 - content_x1
 
             title_font, title_lines = self._fit_font_and_wrap(
