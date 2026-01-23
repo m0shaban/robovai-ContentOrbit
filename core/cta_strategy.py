@@ -62,7 +62,7 @@ class PlatformLinks:
     telegram_hub_url: str = "https://t.me/robovai_hub"
     facebook_page: str = "https://www.facebook.com/robovaisolutions"
     devto_profile: str = "https://dev.to/mohamedshabanai/"
-    blogger_home: str = "https://moshaban.me"
+    blogger_home: str = "https://www.robovai.tech/"
     whatsapp_url: str = "https://wa.me/201234567890"  # Update with actual number
 
     # Personal Branding & Community

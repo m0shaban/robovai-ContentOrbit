@@ -274,7 +274,7 @@ class ContentOrbitBot:
 
                             out = [
                                 f"Title: {result.article.title}",
-                                f"Blogger: {result.blogger_url or 'https://moshaban.me'}",
+                                f"Blogger: {result.blogger_url or 'https://www.robovai.tech/'}",
                                 f"Dev.to: {result.devto_url or '-'}",
                                 "",
                             ]
@@ -298,9 +298,13 @@ class ContentOrbitBot:
                             except Exception:
                                 file_path = None
 
-                            caption = "🧾 <b>Drafts جاهزة</b> (LinkedIn / Shorts / Reddit)"
+                            caption = (
+                                "🧾 <b>Drafts جاهزة</b> (LinkedIn / Shorts / Reddit)"
+                            )
                             if file_path:
-                                caption += f"\n\n📁 Saved: <code>{_esc(str(file_path))}</code>"
+                                caption += (
+                                    f"\n\n📁 Saved: <code>{_esc(str(file_path))}</code>"
+                                )
 
                             await tg.notify_admins_document(
                                 caption=caption,
